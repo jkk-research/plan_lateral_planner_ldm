@@ -14,9 +14,9 @@
 #include "../emg_linearDriverModel.hpp"
 
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 void SegmentPlanner::buildClothoid(
@@ -48,7 +48,7 @@ void SegmentPlanner::buildClothoid(
       clothoidSubfunctions.h = 0.0000002f;
    }
 
-   segmentParams.L[startIndex].value() = vfc::divide(r, clothoidSubfunctions.h);
+   segmentParams.L[startIndex].value()  = vfc::divide(r, clothoidSubfunctions.h);
    if (segmentParams.L[startIndex].value() == 0.0f)
    {
       segmentParams.k[startIndex].value()  = 0.0f;

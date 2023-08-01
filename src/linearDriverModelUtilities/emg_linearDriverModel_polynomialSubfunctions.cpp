@@ -13,9 +13,9 @@
 
 #include "../emg_linearDriverModel.hpp"
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 void PolynomialSubfunctions::gaussElimination(
    vfc::float32_t (&gaussMatrix)[4][5], PolynomialCoeffs& polynomialCoeffs)
@@ -124,9 +124,7 @@ void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory
       sum = 0;
       for (uint16_t j = 0; j < trajectory.trajectoryLength; j++)
       {
-         sum = sum
-               + vfc::pow(trajectory.trajectoryPoints[j].PointsX.value(), i)
-                    * trajectory.trajectoryPoints[j].PointsY.value();
+         sum = sum + vfc::pow(trajectory.trajectoryPoints[j].PointsX.value(), i) * trajectory.trajectoryPoints[j].PointsY.value();
       }
       b[i] = sum;
    }
@@ -174,7 +172,7 @@ vfc::float32_t PolynomialSubfunctions::calculateDeterminant(vfc::float32_t Mx[4]
 vfc::float32_t PolynomialSubfunctions::calculateSubDeterminant(vfc::float32_t Mx[4][4], vfc::uint8_t i)
 {
    vfc::float32_t m[3][3];
-   vfc::uint8_t   columns[3];
+   vfc::uint8_t    columns[3];
    switch (i)
    {
       case 0:

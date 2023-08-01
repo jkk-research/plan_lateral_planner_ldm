@@ -20,9 +20,9 @@
 #include "vfc/container/vfc_carray.hpp"
 
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 struct Points2D
@@ -65,16 +65,16 @@ struct NodePoints
    vfc::CSI::si_radian_f32_t nodePointsTheta[4]{static_cast<vfc::CSI::si_radian_f32_t>(0.0f)};
 };
 
-struct EvalPoints
+/*struct EvalPoints
 {
-   vfc::TCArray<vfc::CSI::si_metre_f32_t, 300U> evalPointsSegment1{
+   vfc::TCArray<vfc::CSI::si_metre_f32_t, 300U> evalPointsSegment1 = {
+      vfc::CSI::si_metre_f32_t(0.0f)};
+   vfc::TCArray<vfc::CSI::si_metre_f32_t, 300U> evalPointsSegment2 = {
       static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
-   vfc::TCArray<vfc::CSI::si_metre_f32_t, 300U> evalPointsSegment2{
+   vfc::TCArray<vfc::CSI::si_metre_f32_t, 300U> evalPointsSegment3 = {
       static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
-   vfc::TCArray<vfc::CSI::si_metre_f32_t, 300U> evalPointsSegment3{
-      static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
-   vfc::uint16_t evalPointsLengths[3]{0U, 0U, 0U};
-};
+   vfc::uint16_t evalPointsLengths[3] = {0U, 0U, 0U};
+};*/
 
 struct SegmentParams
 {
@@ -93,6 +93,11 @@ struct PolynomialCoeffs
    vfc::float32_t           c3{0.0f};
    vfc::CSI::si_metre_f32_t length{0.0f};
    vfc::CSI::si_metre_f32_t breakPoint{0.0f};
+};
+
+struct PolynomialCoeffsTwoSegments
+{
+   PolynomialCoeffs segmentCoeffs[2];
 };
 
 struct PolynomialCoeffsThreeSegments

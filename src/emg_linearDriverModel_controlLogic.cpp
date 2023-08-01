@@ -13,9 +13,9 @@
 
 #include "emg_linearDriverModel.hpp"
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 void ControlLogic::corridorValidityCalc(
@@ -309,7 +309,6 @@ bool ControlLogic::calcValidity(
 
    return ((replan || !initialized) && validity);
 }
-
 
 }  // namespace Emg
 }  // namespace Dc

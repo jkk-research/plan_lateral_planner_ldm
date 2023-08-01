@@ -14,9 +14,9 @@
 #include "../emg_linearDriverModel.hpp"
 
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 vfc::float32_t ClothoidSubfunctions::normalizeAngle(vfc::float32_t phi_in)

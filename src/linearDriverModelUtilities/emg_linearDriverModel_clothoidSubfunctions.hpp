@@ -21,9 +21,9 @@
 #include "../emg_linearDriverModel_interfaces.hpp"
 
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 class ClothoidSubfunctions
@@ -50,10 +50,10 @@ private:
    void           fresnelCS(vfc::float32_t, vfc::float32_t&, vfc::float32_t&);
    void           fresnelCSk(vfc::uint8_t, vfc::float32_t, vfc::float32_t (&C)[3], vfc::float32_t (&S)[3]);
    void           evalXYaLarge(
-       vfc::uint8_t, 
-       vfc::float32_t, 
-       vfc::float32_t, 
-       vfc::float32_t (&X)[3], 
+       vfc::uint8_t,
+       vfc::float32_t,
+       vfc::float32_t,
+       vfc::float32_t (&X)[3],
        vfc::float32_t (&Y)[3]);
    vfc::float32_t rLommel(vfc::float32_t, vfc::float32_t, vfc::float32_t);
    void evalXYaZero(vfc::uint8_t, vfc::float32_t, vfc::float32_t (&X0)[17], vfc::float32_t (&Y0)[17]);

@@ -19,9 +19,9 @@
 #include "../emg_linearDriverModel_interfaces.hpp"
 
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 class DriverModel
@@ -34,7 +34,13 @@ public:
    vfc::float32_t x[3]{0.0f};
    vfc::float32_t nominal[12]{0.0f};
    vfc::uint16_t  indices[4]{0U};
-   void           driverModelPlanner(const CorridorInfo&, const LDMParamIn&, NodePoints&);
+   
+   vfc::float32_t   XNominal[3]{0.0f};
+   vfc::float32_t   YNominal[3]{0.0f};
+   vfc::float32_t   thetaNominal[3]{0.0f};
+   vfc::float32_t   kappaNominal[3]{0.0f};
+   PolynomialCoeffs validCoefficients{};
+
    void           driverModelPlannerLite(
                 const CorridorInfoCoefficients&,
                 const PolynomialCoeffsThreeSegments& trajectoryCoeffsThreeSegments,
@@ -43,7 +49,6 @@ public:
 
 private:
    // helper methods
-   void nodePointModel(const CorridorInfo&, const LDMParamIn&);
    void offsetCalcLDM(const LDMParamIn&, const vfc::float32_t*, const vfc::float32_t*);
    void offsetCalcExtendedLDM(const LDMParamIn&, const vfc::float32_t*);
 };

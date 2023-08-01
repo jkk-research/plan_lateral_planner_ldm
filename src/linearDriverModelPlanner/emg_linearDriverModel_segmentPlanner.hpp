@@ -19,12 +19,12 @@
 #include "vfc/core/vfc_algorithm.hpp"
 
 #include "../emg_linearDriverModel_interfaces.hpp"
-#include "../linearDriverModelUtilities/emg_linearDriverModel_clothoidSubfunctions.hpp"
-#include "../linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
+#include "../LinearDriverModelUtilities/emg_linearDriverModel_clothoidSubfunctions.hpp"
+#include "../LinearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 class SegmentPlanner
@@ -33,17 +33,17 @@ public:
    // main method
    void buildClothoid(const NodePoints&, SegmentParams&, vfc::uint8_t);
    void buildPolynomial(const NodePoints&, PolynomialCoeffs&, SegmentParams&);
-   void SegmentPlanner::buildThreeSegmentPolynomial(
+   void buildThreeSegmentPolynomial(
       const NodePoints&              nodePoints,
       PolynomialCoeffsThreeSegments& polynomialCoeffs,
       SegmentParams&                 segmentParams);
-
+      
 private:
    // helper class
    ClothoidSubfunctions   clothoidSubfunctions{};
    PolynomialSubfunctions polynomialSubfunctions{};
    // helper variable
-   vfc::float32_t gaussMatrix[4][5]{0.0f};
+   vfc::float32_t gaussMatrix[4][5]{{0.0f}};
 };
 
 }  // namespace Emg

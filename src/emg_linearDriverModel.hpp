@@ -21,128 +21,59 @@
 
 #include "emg_linearDriverModel_interfaces.hpp"
 #include "emg_linearDriverModel_controlLogic.hpp"
-#include "linearDriverModelDriverModel/emg_linearDriverModel_driverModel.hpp"
-#include "linearDriverModelPlanner/emg_linearDriverModel_trajectoryPlanner.hpp"
-#include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
+#include "LinearDriverModelDriverModel/emg_linearDriverModel_driverModel.hpp"
+#include "LinearDriverModelPlanner/emg_linearDriverModel_segmentPlanner.hpp"
+#include "LinearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
 
-
-namespace Dc
+// >>>IntecrioMeasurement<<<
+#if !defined _MSC_VER && !defined(__GNUC__)
+extern "C"
 {
-namespace Emg
+#endif
+#include "vmc/runnables/ES910Wrapper/linearDriverModel.h"
+#if !defined _MSC_VER && !defined(__GNUC__)
+}
+#endif
+
+namespace Rb
+{
+namespace Vmc
 {
 
 class LinearDriverModel  // cover class of DriverTrajectoryPlanner
 {
 public:
-   void                 init();  // might be deleted
-   TrajectoryPoints     run(const CorridorInfo&, const Pose2D&, const LDMParamIn&);
-   TrajectoryPolynomial runPoly(const CorridorInfo&, const Pose2D&, const LDMParamIn&);
-   // cover function for simulink
-   TrajectoryPolynomial runPoly(
-      vfc::CSI::si_metre_f32_t     corrX[300],
-      vfc::CSI::si_metre_f32_t     corrY[300],
-      vfc::CSI::si_radian_f32_t    corrC1[300],
-      vfc::CSI::si_per_metre_f32_t corrC2[300],
-      vfc::uint16_t                corrLength,
-      vfc::CSI::si_metre_f32_t     egoPoseX,
-      vfc::CSI::si_metre_f32_t     egoPoseY,
-      vfc::CSI::si_radian_f32_t    egoPoseTheta,
-      vfc::CSI::si_metre_f32_t     LAD,
-      vfc::uint8_t                 replanCycle,
-      vfc::float32_t               P[21],
-      vfc::float32_t               P_nodePointDistances[3]);
-   PolynomialCoeffs runCoeffs(const CorridorInfo&, const Pose2D&, const LDMParamIn&);
-   // cover function for simulink
-   PolynomialCoeffs runCoeffs(
-      vfc::CSI::si_metre_f32_t     corrX[300],
-      vfc::CSI::si_metre_f32_t     corrY[300],
-      vfc::CSI::si_radian_f32_t    corrC1[300],
-      vfc::CSI::si_per_metre_f32_t corrC2[300],
-      vfc::uint16_t                corrLength,
-      vfc::CSI::si_metre_f32_t     egoPoseX,
-      vfc::CSI::si_metre_f32_t     egoPoseY,
-      vfc::CSI::si_radian_f32_t    egoPoseTheta,
-      vfc::CSI::si_metre_f32_t     LAD,
-      vfc::uint8_t                 replanCycle,
-      vfc::float32_t               P[21],
-      vfc::float32_t               P_nodePointDistances[3]);
-   PolynomialCoeffsThreeSegments runCoeffsLite(
+   PolynomialCoeffsTwoSegments runCoeffsLite(
       const CorridorInfoCoefficients&, const Pose2D&, const LDMParamIn&);
-   // cover function for simulink S-function
-   vfc::CSI::si_metre_f32_t* run(
-      vfc::CSI::si_metre_f32_t     corrX[300],
-      vfc::CSI::si_metre_f32_t     corrY[300],
-      vfc::CSI::si_radian_f32_t    corrC1[300],
-      vfc::CSI::si_per_metre_f32_t corrC2[300],
-      vfc::uint16_t                corrLength,
-      vfc::CSI::si_metre_f32_t     egoPoseX,
-      vfc::CSI::si_metre_f32_t     egoPoseY,
-      vfc::CSI::si_radian_f32_t    egoPoseTheta,
-      vfc::CSI::si_metre_f32_t     LAD,
-      vfc::uint8_t                 replanCycle,
-      vfc::float32_t               P[21],
-      vfc::float32_t               P_nodePointDistances[3]);
-   CorridorInfo corridor{};
-   LDMParamIn   params{};
-   Pose2D       egoPoseGlob{};
+
    // Control Logic
    ControlLogic controlLogic{};
+
    // Driver Model
    DriverModel driverModel{};
+
    // internal input and output structs
-   EvalPoints evalPoints{};
    NodePoints nodePoints{};
-   NodePoints nodePointsGlobalFrame{};
    NodePoints nodePointsEgoFrame{};
-   Pose2D     plannerFramePoseGlobalFrame{};
-   Pose2D     previousPlannerFrame{};
    Pose2D     egoPoseGlobalPlan{};
    // Evaluation Points calculation for trajectory planner
-   void evalPointsPreprocess(vfc::uint16_t[4], const CorridorInfo&, EvalPoints&);
    // Preprocess
-   void getPlannerFrame(
-      const Pose2D&,
-      const LDMParamIn&,
-      const NodePoints&,
-      const SegmentParams&,
-      const TrajectoryPoints&,
-      const TrajectoryPoints&);
 
 private:
    // Transforms
-   CoordinateTransforms   coordinateTransforms{};
-   PolynomialSubfunctions polynomialSubfunctions{};
-   // TrajectoryPlanner
-   TrajectoryPlanner trajectoryPlanner{};
+   CoordinateTransforms coordinateTransforms{};
+
+   // Curve fitting - segment planner
    SegmentPlanner    segmentPlanner{};
-   // internal input and output structs
-   CorridorInfo                  corridorPlannerFrame{};
-   CorridorInfo                  corridorGlobalFrame{};
-   CorridorInfoCoefficients      corridorCoefficientsGlobal{};
-   TrajectoryPoints              trajectoryPlannerFrame{};
-   TrajectoryPoints              previousTrajectoryPlannerFrame{};
-   TrajectoryPoints              trajectoryGlobalFrame{};
-   TrajectoryPoints              trajectoryEgoFrame{};
-   TrajectoryPoints              trajectoryEmpty{};
-   Pose2D                        tempPlannerFrame{};
-   SegmentParams                 segmentParams{};
-   SegmentParams                 segmentParamsEgoFrame{};
-   PolynomialCoeffs              polynomialCoeffs{};
-   PolynomialCoeffs              trajectoryCoeffs{};
-   PolynomialCoeffs              trajectoryCoeffsEmpty{};
+   SegmentParams        segmentParams{};
+   SegmentParams        segmentParamsEgoFrame{};
+
+   // Results of the curve fitting and return of coefficients towards TRC
    PolynomialCoeffsThreeSegments trajectoryCoeffsThreeSegments{};
-   PolynomialCoeffsThreeSegments trajectoryCoeffsThreeSegmentsEmpty{};
-   TrajectoryPolynomial          trajectoryPolynomial{};
-   TrajectoryPolynomial          trajectoryPolynomialEmpty{};
+   PolynomialCoeffsTwoSegments coefficientsToController{};
+
    // internal variables
-   vfc::float32_t           diffTrajX{0.0f};
-   vfc::float32_t           diffTrajY{0.0f};
-   vfc::float32_t           distance{0.0f};
-   vfc::float32_t           arcLength{0.0f};
-   vfc::int16_t             segmentId{0};
    bool                     firstCycle{true};
-   bool                     triggerPlanner{false};
-   vfc::CSI::si_metre_f32_t trajEmpty[601]{static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
 };
 
 }  // namespace Emg

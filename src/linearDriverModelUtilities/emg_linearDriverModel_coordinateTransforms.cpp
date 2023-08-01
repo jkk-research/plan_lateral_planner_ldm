@@ -13,9 +13,9 @@
 
 #include "../emg_linearDriverModel.hpp"
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 void CoordinateTransforms::transform2D(

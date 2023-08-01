@@ -19,9 +19,9 @@
 #include "../emg_linearDriverModel_interfaces.hpp"
 
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 class PolynomialSubfunctions
@@ -39,19 +39,19 @@ private:
    // helper variable for gauss elimination
    vfc::float32_t gaussResult[4]{0.0f};
    // helper methods for polynomial fitting
-   void           calculateBvector(const TrajectoryPoints&);
-   void           calculateMmatrix(const TrajectoryPoints&);
+   void calculateBvector(const TrajectoryPoints&);
+   void calculateMmatrix(const TrajectoryPoints&);
    vfc::float32_t calculateDeterminant(vfc::float32_t Mx[4][4]);
    vfc::float32_t calculateSubDeterminant(vfc::float32_t Mx[4][4], vfc::uint8_t);
    void           calculateModifiedMMatrix(vfc::uint8_t);
    // helper variable for polynomial fitting
    PolynomialCoeffs polyCoeffs{};
    vfc::float32_t   a[4];
-   vfc::float32_t   v[9];
-   vfc::float32_t   M_[4][4]{0.0f};
-   vfc::float32_t   M[4][4]{0.0f};
-   vfc::float32_t   detM;
-   vfc::float32_t   b[4]{0.0f};
+   vfc::float32_t v[9];
+   vfc::float32_t M_[4][4]{{0.0f}};
+   vfc::float32_t M[4][4]{{0.0f}};
+   vfc::float32_t detM;
+   vfc::float32_t b[4]{{0.0f}};
 };
 
 }  // namespace Emg

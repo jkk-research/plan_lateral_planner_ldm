@@ -13,184 +13,10 @@
 
 #include "../emg_linearDriverModel.hpp"
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
-
-void DriverModel::calc(
-   const CorridorInfo& corridorPlannerFrame, const LDMParamIn& parameters, NodePoints& nodePoints)
-{
-   nodePointModel(corridorPlannerFrame, parameters);
-   driverModelPlanner(corridorPlannerFrame, parameters, nodePoints);
-}
-
-void DriverModel::nodePointModel(const CorridorInfo& corridorPlanner, const LDMParamIn& parameters)
-{
-   vfc::float32_t L[4]{0.0f};
-   vfc::float32_t lengths[300]{0.0f};
-   vfc::float32_t minStepDist = 10.0f;
-   vfc::uint16_t  n           = corridorPlanner.corridorLength - 1U;
-
-   if (n >= 0)
-   {
-      for (uint16_t i{0}; i <= n; i++)
-      {
-         lengths[i] = vfc::sqrt(
-            vfc::sqr(corridorPlanner.corridorPoints[i].PointsX.value())
-            + vfc::sqr(corridorPlanner.corridorPoints[i].PointsY.value()));
-      }
-      indices[0] = 0U;
-      if (lengths[n] > (3 * minStepDist))
-      {
-         L[1] = vfc::min(
-            lengths[n] - 3 * minStepDist, vfc::max(minStepDist, parameters.P_nodePointDistances[0] * 250.0f));
-         L[2] = vfc::min(
-            lengths[n] - 2 * minStepDist,
-            vfc::max(L[1] + minStepDist, L[1] + parameters.P_nodePointDistances[1] * 250.0f));
-         L[3] = vfc::min(
-            lengths[n] - minStepDist,
-            vfc::max(L[2] + minStepDist, L[2] + parameters.P_nodePointDistances[2] * 250.0f));
-
-         vfc::uint16_t index1 = 0U;
-         vfc::uint16_t index2 = 0U;
-         vfc::uint16_t index3 = 0U;
-
-         while (lengths[index1] <= L[1] && index1 < 300U)
-         {
-            index1++;
-         }
-         indices[1] = index1;
-
-         while (lengths[index2] <= L[2] && index2 < 300U)
-         {
-            index2++;
-         }
-         indices[2] = index2;
-
-         while (lengths[index3] <= L[3] && index3 < 300U)
-         {
-            index3++;
-         }
-         indices[3] = vfc::min(n, index3);
-      }
-      else
-      {
-         indices[1] = 0U;
-         indices[2] = 0U;
-         indices[3] = 0U;
-      }
-   }
-   else
-   {
-      indices[1] = 0U;
-      indices[2] = 0U;
-      indices[3] = 0U;
-   }
-}
-
-void DriverModel::driverModelPlanner(
-   const CorridorInfo& corridorPlanner, const LDMParamIn& parameters, NodePoints& nodePoints)
-{
-   vfc::float32_t XNominal[4]{0.0f};
-   vfc::float32_t YNominal[4]{0.0f};
-   vfc::float32_t thetaNominal[4]{0.0f};
-   vfc::float32_t kappaNominal[3]{0.0f};
-   vfc::float32_t dkappaNominal[4]{0.0f};
-   vfc::uint16_t  n = corridorPlanner.corridorLength;
-
-   bool invalidIndices{false};
-
-   for (uint8_t i{1}; i < 4; i++)
-   {
-      if (indices[i] <= indices[i - 1])
-      {
-         invalidIndices = true;
-         break;
-      }
-   }
-
-   if (invalidIndices)
-   {
-      for (uint8_t i{0}; i <= 3; i++)
-      {
-         nodePoints.nodePointsCoordinates[i].PointsY.value() = 0.0f;
-         nodePoints.nodePointsCoordinates[i].PointsX.value() = 0.0f;
-         nodePoints.nodePointsTheta[i].value()               = 0.0f;
-      }
-   }
-   else
-   {
-      for (uint8_t i{0}; i <= 3; i++)
-      {
-         XNominal[i]     = corridorPlanner.corridorPoints[indices[i]].PointsX.value();
-         YNominal[i]     = corridorPlanner.corridorPoints[indices[i]].PointsY.value();
-         thetaNominal[i] = corridorPlanner.corridorOrientation[indices[i]].value();
-      }
-
-      vfc::uint16_t  numberOfElements = 0U;
-      vfc::float32_t sum              = 0.0f;
-      vfc::float32_t mean_kappa       = 0.0f;
-      for (uint8_t i{0}; i <= 2; i++)
-      {
-         numberOfElements = indices[i + 1] - indices[i] + 1;
-         sum              = 0.0f;
-
-         for (uint16_t j{0}; j < numberOfElements; j++)
-         {
-            sum += corridorPlanner.corridorCurvature[indices[i] + j].value();
-         }
-         mean_kappa      = vfc::divide(sum, static_cast<vfc::float32_t>(numberOfElements));
-         kappaNominal[i] = mean_kappa;
-      }
-
-      for (uint8_t i{0U}; i <= 3U; i++)
-      {
-         if (i == 0)
-         {
-            dkappaNominal[i] = vfc::divide(
-               corridorPlanner.corridorCurvature[indices[i] + 1].value()
-                  - corridorPlanner.corridorCurvature[indices[i]].value(),
-               corridorPlanner.corridorPoints[indices[i] + 1].PointsX.value()
-                  - corridorPlanner.corridorPoints[indices[i]].PointsX.value());
-         }
-         else
-         {
-            dkappaNominal[i] = vfc::divide(
-               corridorPlanner.corridorCurvature[indices[i]].value()
-                  - corridorPlanner.corridorCurvature[indices[i] - 1].value(),
-               corridorPlanner.corridorPoints[indices[i]].PointsX.value()
-                  - corridorPlanner.corridorPoints[indices[i] - 1].PointsX.value());
-         }
-      }
-
-      for (uint8_t i{0U}; i <= 3U; i++)
-      {
-         nominal[i]     = XNominal[i];
-         nominal[i + 4] = YNominal[i];
-         nominal[i + 8] = thetaNominal[i];
-      }
-
-      // offsetCalcLDM(parameters, kappaNominal, dkappaNominal);
-      offsetCalcExtendedLDM(parameters, kappaNominal);
-
-      for (uint8_t i{0}; i <= 3U; i++)
-      {
-         if (i == 0U)
-         {
-            nodePoints.nodePointsCoordinates[i].PointsY.value() = 0.0f;
-            nodePoints.nodePointsCoordinates[i].PointsX.value() = 0.0f;
-            nodePoints.nodePointsTheta[i].value()               = 0.0f;
-         }
-         else
-         {
-            nodePoints.nodePointsCoordinates[i].PointsY.value() = YNominal[i] + x[i - 1];
-            nodePoints.nodePointsCoordinates[i].PointsX.value() = XNominal[i];
-            nodePoints.nodePointsTheta[i].value()               = thetaNominal[i];
-         }
-      }
-   }
-}
 
 void DriverModel::driverModelPlannerLite(
    const CorridorInfoCoefficients&      corridorCoefficients,
@@ -198,29 +24,6 @@ void DriverModel::driverModelPlannerLite(
    const LDMParamIn&                    parameters,
    NodePoints&                          nodePoints)
 {
-   vfc::float32_t   XNominal[3]{0.0f};
-   vfc::float32_t   YNominal[3]{0.0f};
-   vfc::float32_t   thetaNominal[3]{0.0f};
-   vfc::float32_t   kappaNominal[3]{0.0f};
-   PolynomialCoeffs validCoefficients{};
-
-   for (uint8_t i{0U}; i < 3; i++)
-   {
-      if (i == 0)
-      {
-         kappaNominal[i] =
-            2 * corridorCoefficients.c2 + 3 * corridorCoefficients.c3 * parameters.P_nodePointDistances[i];
-      }
-      else
-      {
-         kappaNominal[i] =
-            2 * corridorCoefficients.c2
-            + 3 * corridorCoefficients.c3
-                 * (parameters.P_nodePointDistances[i] + parameters.P_nodePointDistances[i - 1U]);
-      }
-   }
-   // calculating the offsets
-   offsetCalcExtendedLDM(parameters, kappaNominal);
 
    // producing nominal values
    vfc::float32_t scaledNodePointDist[3]{0.0f};
@@ -245,17 +48,36 @@ void DriverModel::driverModelPlannerLite(
                            .value();
    }
 
-   if (trajectoryCoeffsThreeSegments.sectionBorderEnd[3] != 0.0f)
+   for (uint8_t i{0U}; i < 3; i++)
    {
-      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[1];
-      for (uint8_t i{0U}; i < 2; i++)
+      if (i == 0)
       {
-         if (
-            trajectoryCoeffsThreeSegments.sectionBorderStart[i] <= 0.0f
-            && trajectoryCoeffsThreeSegments.sectionBorderEnd[i] > 0.0f)
-         {
-            validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[i];
-         }
+         kappaNominal[i] =
+            2 * corridorCoefficients.c2 + 3 * corridorCoefficients.c3 * scaledNodePointDist[i];
+      }
+      else
+      {
+         kappaNominal[i] =
+            2 * corridorCoefficients.c2
+            + 3 * corridorCoefficients.c3
+                 * (scaledNodePointDist[i] + scaledNodePointDist[i - 1U]);
+      }
+   }
+
+   // calculating the offsets
+   offsetCalcExtendedLDM(parameters, kappaNominal);
+
+   // intializing with further most segment due to extrapolation
+   validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[2];
+   
+   for (uint8_t i{0U}; i < 3; i++)
+   {
+      if (
+         trajectoryCoeffsThreeSegments.sectionBorderStart[i] <= 0.0f
+         && trajectoryCoeffsThreeSegments.sectionBorderEnd[i] > 0.0f)
+      {
+         validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[i];
+         break;
       }
    }
 

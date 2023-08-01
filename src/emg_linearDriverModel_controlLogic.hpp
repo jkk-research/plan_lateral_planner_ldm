@@ -18,9 +18,9 @@
 
 #include "emg_linearDriverModel_interfaces.hpp"
 
-namespace Dc
+namespace Rb
 {
-namespace Emg
+namespace Vmc
 {
 
 class ControlLogic
