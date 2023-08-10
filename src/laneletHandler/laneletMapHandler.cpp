@@ -30,10 +30,10 @@ bool LaneletHandler::init()
     std::string lanelet2_path;
     
     // get parameters
+    nh_p.param<std::string>("gps_topic", gps_topic, "/gps/duro/current_pose");
     nh_p.param<std::string>("lanelet2_path", lanelet2_path, "");
     nh_p.param<std::string>("lanelet_frame", lanelet_frame, "");
     nh_p.param<std::string>("ego_frame", ego_frame, "");
-    nh_p.param<double>("scenario_length", scenario_length, 150);
     nh_p.param<int>("polyline_count", polyline_count, 2);
     nh_p.param<bool>("visualize_path", visualize_path, false);
 
@@ -87,7 +87,7 @@ bool LaneletHandler::init()
     {
         for (auto pt = lane->centerline().begin(); pt != lane->centerline().end(); pt++)
         {
-            Rb::Vmc::Points2D p;
+            Points2D p;
             p.x = pt->x();
             p.y = pt->y();
             pathPoints.push_back(p);
@@ -150,12 +150,20 @@ void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame
     m.color.a = color.a;
 }
 
+Points2D LaneletHandler::getPointOnPoly(float x, PolynomialCoeffs coeffs)
+{
+    Points2D pt;
+    pt.x = x;
+    pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
+    return pt;
+}
+
 bool LaneletHandler::LaneletScenarioServiceCallback(
     lane_keep_system::GetLaneletScenario::Request &req, 
     lane_keep_system::GetLaneletScenario::Response &res)
 {
     // get GPS data directly from topic
-    geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose"));
+    geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>(gps_topic));
 
     // find nearest point to gps postition on path
     int start_point = 0;
@@ -171,24 +179,50 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         }
     }
 
-    // get centerline pts until scenario_lenght is reached
-    Rb::Vmc::TrajectoryPoints scenarioFull;
+    // get centerline pts until scenario_length is reached
+    TrajectoryPoints scenarioFull;
 
     double current_length = 0;
     int prev_pt = start_point;
     int j = start_point + 1;
-    while (j < pathPoints.size() && current_length < scenario_length)
+    std::vector<float> scenarioPointDistances; // distances compared to previous point
+
+    std::vector<int> nodePtIndexes; // node point locations in scenario
+    int nodePtIndex = 0;
+    
+    scenarioFull.push_back(pathPoints[start_point]);
+    scenarioPointDistances.push_back(0);
+    int scenarioPtCounter = 1;
+    while (j < pathPoints.size() && current_length < req.nodePointDistances.back())
     {
-        current_length += distanceBetweenPoints(pathPoints[prev_pt], pathPoints[j]);
+        if (pathPoints[prev_pt].x == pathPoints[j].x)
+        {
+            j++;
+            continue;
+        }
+        
+        float currentDistance = distanceBetweenPoints(pathPoints[prev_pt], pathPoints[j]);
+
+        scenarioPointDistances.push_back(currentDistance);
+        current_length += currentDistance;
+
+        // node point locations in scenario
+        if (nodePtIndex < req.nodePointDistances.size() && current_length > req.nodePointDistances[nodePtIndex])
+        {
+            // first point AFTER the length criteria
+            nodePtIndexes.push_back(scenarioPtCounter);
+            nodePtIndex++;
+        }
 
         scenarioFull.push_back(pathPoints[j]);
 
         prev_pt = j;
         j++;
+        scenarioPtCounter++;
     }
     
     // not enough points to plan (path ended)
-    if (current_length < scenario_length)
+    if (current_length < req.nodePointDistances.back())
     {
         for (uint8_t i = 0; i < polyline_count; i++)
         {
@@ -201,11 +235,12 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     
     // transform scenario pts to ego
     geometry_msgs::TransformStamped transformStamped;
-    Rb::Vmc::TrajectoryPoints scenarioFull_transformed;
+    TrajectoryPoints scenarioFull_transformed;
+    scenarioFull_transformed.reserve(scenarioFull.size());
     try
     {
         geometry_msgs::TransformStamped lanelet2ego_transform = tfBuffer.lookupTransform(ego_frame, lanelet_frame, ros::Time(0));
-        for (Rb::Vmc::Points2D pt: scenarioFull)
+        for (Points2D pt: scenarioFull)
         {
             geometry_msgs::Point p;
             tf2::doTransform<geometry_msgs::Point>(pt, p, lanelet2ego_transform);
@@ -219,46 +254,115 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     }
     
     // slice trajectory into equal segments
-    Rb::Vmc::TrajectoryPoints segments[polyline_count];
-    lane_keep_system::PolynomialCoeffs scenarioPolynomes[polyline_count];
-    uint16_t prev_pt_idx = 0;
+    TrajectoryPoints segments[polyline_count];
+    PolynomialCoeffs scenarioPolynomes[polyline_count];
     int segmentSeparationSize = floor(scenarioFull_transformed.size() / (float)polyline_count);
     
     for (uint8_t i = 0; i < polyline_count - 1; i++)
     {
         for (uint8_t j = i*segmentSeparationSize; j <= (i+1)*segmentSeparationSize; j++)
         {
-            Rb::Vmc::Points2D pt = scenarioFull_transformed[j];
-            scenarioPolynomes[i].length += distanceBetweenPoints(scenarioFull_transformed[prev_pt_idx], pt);
+            scenarioPolynomes[i].length += scenarioPointDistances[j];
             
-            segments[i].push_back(pt);
-
-            prev_pt_idx = j;
+            segments[i].push_back(scenarioFull_transformed[j]);
         }
+        scenarioPolynomes[i].length -= scenarioPointDistances[i*segmentSeparationSize]; // segment first point counted but should have 0 distance
     }
     for (uint8_t j = (polyline_count - 1)*segmentSeparationSize; j < scenarioFull_transformed.size(); j++)
     {
-        Rb::Vmc::Points2D pt = scenarioFull_transformed[j];
-        scenarioPolynomes[polyline_count - 1].length += distanceBetweenPoints(scenarioFull_transformed[prev_pt_idx], pt);
-            
-        segments[polyline_count - 1].push_back(pt);
+        scenarioPolynomes[polyline_count - 1].length += scenarioPointDistances[j];
 
-        prev_pt_idx = j;
+        segments[polyline_count - 1].push_back(scenarioFull_transformed[j]);
     }
+    scenarioPolynomes[polyline_count - 1].length -= scenarioPointDistances[(polyline_count - 1)*segmentSeparationSize]; // segment first point counted but should have 0 distance
     
     // fit polynomes
     for (uint8_t i = 0; i < polyline_count; i++)
     {
-        Rb::Vmc::PolynomialCoeffs out_coeffs = polynomialSubfunctions.fitThirdOrderPolynomial(segments[i]);
-        scenarioPolynomes[i].c0 = out_coeffs.c0;
-        scenarioPolynomes[i].c1 = out_coeffs.c1;
-        scenarioPolynomes[i].c2 = out_coeffs.c2;
-        scenarioPolynomes[i].c3 = out_coeffs.c3;
+        float polyLength = scenarioPolynomes[i].length;
+        scenarioPolynomes[i] = polynomialSubfunctions.fitThirdOrderPolynomial(segments[i]);
+        scenarioPolynomes[i].length = polyLength;
 
-        res.coefficients.push_back(scenarioPolynomes[i]);
+        lane_keep_system::PolynomialCoeffs coeffs_msg;
+        coeffs_msg.c0 = scenarioPolynomes[i].c0;
+        coeffs_msg.c1 = scenarioPolynomes[i].c1;
+        coeffs_msg.c2 = scenarioPolynomes[i].c2;
+        coeffs_msg.c3 = scenarioPolynomes[i].c3;
+        coeffs_msg.length = scenarioPolynomes[i].length;
+        
+        res.coefficients.push_back(coeffs_msg);
+    }
+
+    // calculate kappa
+    // scenario first derivative
+    std::vector<float> derivative_1;
+    derivative_1.reserve(scenarioFull_transformed.size());
+    
+    TrajectoryPoints::iterator currentPt_it = scenarioFull_transformed.begin();
+
+    // forward differencing first point
+    derivative_1.push_back(
+        ((currentPt_it + 1)->y - currentPt_it->y) / 
+        ((currentPt_it + 1)->x - currentPt_it->x));
+    
+    currentPt_it++;
+    for (; currentPt_it != scenarioFull_transformed.end() - 1; currentPt_it++)
+    {
+        // central differencing middle points
+        derivative_1.push_back(
+            ((currentPt_it + 1)->y - (currentPt_it - 1)->y) / 
+            ((currentPt_it + 1)->x - (currentPt_it - 1)->x));
     }
     
+    // backward differencing last point
+    derivative_1.push_back(
+        (currentPt_it->y - (currentPt_it - 1)->y) / 
+        (currentPt_it->x - (currentPt_it - 1)->x));
+    
 
+    // scenario second derivative
+    std::vector<float> derivative_2;
+    derivative_2.reserve(scenarioFull_transformed.size());
+    
+    TrajectoryPoints::iterator currentXPt_it = scenarioFull_transformed.begin();
+    std::vector<float>::iterator currentY_it = derivative_1.begin();
+
+    // forward differencing first point
+    derivative_2.push_back(
+        (*(currentY_it + 1) - *currentY_it) / 
+        ((currentXPt_it + 1)->x - currentXPt_it->x));
+    
+    currentXPt_it++;
+    for (; currentXPt_it != scenarioFull_transformed.end() - 1; currentXPt_it++)
+    {
+        // central differencing middle points
+        derivative_2.push_back(
+            (*(currentY_it + 1) - *(currentY_it - 1)) / 
+            ((currentXPt_it + 1)->x - (currentXPt_it - 1)->x));
+    }
+    
+    // backward differencing last point
+    derivative_2.push_back(
+        (*currentY_it - *(currentY_it - 1)) / 
+        (currentXPt_it->x - (currentXPt_it - 1)->x));
+    
+    // kappa averages
+    //TODO: TEST
+    int nodePtIdxStart = 0;
+    for (int nodePtIdx: nodePtIndexes)
+    {
+        float kappa = 0;
+        for (int i = nodePtIdxStart; i <= nodePtIdx; i++)
+        {
+            kappa += derivative_2[i];
+        }
+        kappa /= nodePtIdx - nodePtIdxStart + 1;
+        nodePtIdxStart = nodePtIdx;
+
+        res.kappa.push_back(kappa);
+    }
+
+    // visualization
     if (visualize_path)
     {
         // visualize original and transformed paths
@@ -278,7 +382,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             initMarker(polyMarker[i], lanelet_frame, ("poly_"+std::to_string(i+1)), visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, i%2, 1));
         }
         
-        for (Rb::Vmc::Points2D pt: pathPoints)
+        for (Points2D pt: pathPoints)
         {
             plannedPathMarker.points.push_back(pt);
         }
@@ -292,14 +396,11 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         for (uint8_t i = 0; i < polyline_count; i++)
         {
-            for (Rb::Vmc::Points2D pt: segments[i])
+            for (Points2D pt: segments[i])
             {
                 scenarioSegmentMarker[i].points.push_back(pt);
                 
-                geometry_msgs::Point p;
-
-                p.x = pt.x;
-                p.y = scenarioPolynomes[i].c0 + scenarioPolynomes[i].c1 * p.x + scenarioPolynomes[i].c2 * pow(p.x, 2) + scenarioPolynomes[i].c3 * pow(p.x, 3);
+                geometry_msgs::Point p = getPointOnPoly(pt.x, scenarioPolynomes[i]);
                 p.z = 0.5;
                 polyMarker[i].points.push_back(p);
             }

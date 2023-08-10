@@ -17,11 +17,6 @@
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
 
-namespace Rb
-{
-namespace Vmc
-{
-
 class PolynomialSubfunctions
 {
 public:
@@ -51,8 +46,5 @@ private:
    double detM;
    double b[4]{{0.0f}};
 };
-
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_POLYNOMIALSUBFUNCTIONS_HPP_INCLUDED

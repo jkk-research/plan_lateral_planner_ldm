@@ -1,2 +1,4 @@
+float32[] nodePointDistances
 ---
 PolynomialCoeffs[] coefficients
+float32[] kappa

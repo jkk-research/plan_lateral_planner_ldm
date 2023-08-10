@@ -13,10 +13,7 @@
 
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 
-namespace Rb
-{
-namespace Vmc
-{
+
 void PolynomialSubfunctions::gaussElimination(
    float (&gaussMatrix)[4][5], PolynomialCoeffs& polynomialCoeffs)
 {
@@ -133,7 +130,7 @@ void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory
 void PolynomialSubfunctions::calculateMmatrix(const TrajectoryPoints& trajectory)
 {
    double sum = 0.0f;
-   for (uint8_t i = 0; i < 9; i++)
+   for (uint8_t i = 0; i < 7; i++)
    {
       sum = 0;
       for (uint16_t j = 0; j < trajectory.size(); j++)
@@ -226,6 +223,3 @@ void PolynomialSubfunctions::calculateModifiedMMatrix(uint8_t k)
       }
    }
 }
-
-}  // namespace Emg
-}  // namespace Dc

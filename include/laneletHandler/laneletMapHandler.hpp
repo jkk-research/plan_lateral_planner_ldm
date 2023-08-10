@@ -30,23 +30,26 @@ private:
 
     visualization_msgs::MarkerArray markerArray;
     lanelet::ConstLanelets roadLanelets;
-    Rb::Vmc::TrajectoryPoints pathPoints;
+    TrajectoryPoints pathPoints;
+    std::string gps_topic;
     std::string lanelet_frame;
     std::string ego_frame;
-    double scenario_length;
     int polyline_count;
     bool visualize_path;
 
-    Rb::Vmc::PolynomialSubfunctions polynomialSubfunctions;
+    PolynomialSubfunctions polynomialSubfunctions;
 
     // Load parameters, load lanelet file, plan path
     bool init();
     // Calculate distance between two given points
     double distanceBetweenPoints(geometry_msgs::Point a, geometry_msgs::Point b);
+    // Get point on polynom at the given x value
+    Points2D getPointOnPoly(float x, PolynomialCoeffs coeffs);
     // Get color as ROS object
     std_msgs::ColorRGBA getColorObj(float r, float g, float b, float a);
     // Initialize markers
     void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color);
+
     // ROS service callback for calculating polynomial coefficients for the path ahead of the car
     bool LaneletScenarioServiceCallback(lane_keep_system::GetLaneletScenario::Request &req, lane_keep_system::GetLaneletScenario::Response &res);
 };

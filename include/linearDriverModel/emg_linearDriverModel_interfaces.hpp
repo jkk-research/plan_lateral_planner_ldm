@@ -20,10 +20,6 @@
 #include <string>
 #include <vector>
 
-namespace Rb
-{
-namespace Vmc
-{
 
 typedef geometry_msgs::Point Points2D;
 
@@ -101,8 +97,5 @@ struct PolynomialCoeffs
 //    vfc::float32_t           P[21]{0.0f};
 //    vfc::float32_t           P_nodePointDistances[3]{0.0f, 0.1160f, 0.3840f};
 // };
-
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
