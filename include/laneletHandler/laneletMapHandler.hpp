@@ -11,7 +11,10 @@
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
+#include <tf2_ros/transform_listener.h>
+
 #include <vector>
+#include <memory>
 
 class LaneletHandler
 {
@@ -22,10 +25,12 @@ private:
     ros::NodeHandle nh_p;
     ros::ServiceServer lanelet_service_;
     ros::Publisher pub_road_lines;
+    tf2_ros::Buffer tfBuffer;
+    std::unique_ptr<tf2_ros::TransformListener> tfListener;
 
     visualization_msgs::MarkerArray markerArray;
-    lanelet::ConstLanelets road_lanelets;
-    Rb::Vmc::TrajectoryPoints path_pts;
+    lanelet::ConstLanelets roadLanelets;
+    Rb::Vmc::TrajectoryPoints pathPoints;
     std::string lanelet_frame;
     std::string ego_frame;
     double scenario_length;
@@ -37,8 +42,11 @@ private:
     // Load parameters, load lanelet file, plan path
     bool init();
     // Calculate distance between two given points
-    double DistanceBetweenPoints(geometry_msgs::Point a, geometry_msgs::Point b);
-
+    double distanceBetweenPoints(geometry_msgs::Point a, geometry_msgs::Point b);
+    // Get color as ROS object
+    std_msgs::ColorRGBA getColorObj(float r, float g, float b, float a);
+    // Initialize markers
+    void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color);
     // ROS service callback for calculating polynomial coefficients for the path ahead of the car
     bool LaneletScenarioServiceCallback(lane_keep_system::GetLaneletScenario::Request &req, lane_keep_system::GetLaneletScenario::Response &res);
 };

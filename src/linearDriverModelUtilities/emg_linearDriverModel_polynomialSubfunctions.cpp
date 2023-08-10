@@ -20,7 +20,7 @@ namespace Vmc
 void PolynomialSubfunctions::gaussElimination(
    float (&gaussMatrix)[4][5], PolynomialCoeffs& polynomialCoeffs)
 {
-   int singular = forwardElimination(gaussMatrix);
+   int8_t singular = forwardElimination(gaussMatrix);
 
    if (singular != -1)
    {
@@ -92,7 +92,7 @@ uint8_t PolynomialSubfunctions::forwardElimination(float (&gaussMatrix)[4][5])
 
       for (uint8_t i{k + 1U}; i < 4U; i++)
       {
-         float f = gaussMatrix[i][k] - gaussMatrix[k][k];
+         float f = gaussMatrix[i][k] / gaussMatrix[k][k];
          for (uint8_t j{k + 1U}; j <= 4U; j++)
          {
             gaussMatrix[i][j] -= gaussMatrix[k][j] * f;
@@ -112,13 +112,13 @@ void PolynomialSubfunctions::backSubstitute(float (&gaussMatrix)[4][5])
       {
          gaussResult[i] -= gaussMatrix[i][j] * gaussResult[j];
       }
-      gaussResult[i] = gaussResult[i] - gaussMatrix[i][i];
+      gaussResult[i] = gaussResult[i] / gaussMatrix[i][i];
    }
 }
 
 void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory)
 {
-   float sum = 0.0f;
+   double sum = 0.0f;
    for (uint8_t i = 0; i < 4; i++)
    {
       sum = 0;
@@ -132,7 +132,7 @@ void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory
 
 void PolynomialSubfunctions::calculateMmatrix(const TrajectoryPoints& trajectory)
 {
-   float sum = 0.0f;
+   double sum = 0.0f;
    for (uint8_t i = 0; i < 9; i++)
    {
       sum = 0;
@@ -151,12 +151,12 @@ void PolynomialSubfunctions::calculateMmatrix(const TrajectoryPoints& trajectory
    }
 }
 
-float PolynomialSubfunctions::calculateDeterminant(float Mx[4][4])
+double PolynomialSubfunctions::calculateDeterminant(double Mx[4][4])
 {
-   float D = 0;
+   double D = 0;
    for (uint8_t i = 0; i < 4; i++)
    {
-      float dM = calculateSubDeterminant(Mx, i);
+      double dM = calculateSubDeterminant(Mx, i);
       if (i == 0 || i == 2)
       {
          D = D + Mx[0][i] * dM;
@@ -169,9 +169,9 @@ float PolynomialSubfunctions::calculateDeterminant(float Mx[4][4])
    return D;
 }
 
-float PolynomialSubfunctions::calculateSubDeterminant(float Mx[4][4], uint8_t i)
+double PolynomialSubfunctions::calculateSubDeterminant(double Mx[4][4], uint8_t i)
 {
-   float m[3][3];
+   double m[3][3];
    uint8_t columns[3];
    switch (i)
    {

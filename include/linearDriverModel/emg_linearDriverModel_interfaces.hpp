@@ -29,12 +29,6 @@ typedef geometry_msgs::Point Points2D;
 
 typedef std::vector<Points2D> TrajectoryPoints;
 
-struct TrajectorySegment
-{
-   TrajectoryPoints points;
-   Points2D offset;
-};
-
 struct PolynomialCoeffs
 {
    float c0{0.0f};
@@ -43,7 +37,6 @@ struct PolynomialCoeffs
    float c3{0.0f};
    float length{0.0f};
    float breakPoint{0.0f};
-   Points2D offset;
 };
 
 // struct CorridorInfoCoefficients

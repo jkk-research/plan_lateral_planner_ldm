@@ -39,17 +39,17 @@ private:
    // helper methods for polynomial fitting
    void calculateBvector(const TrajectoryPoints&);
    void calculateMmatrix(const TrajectoryPoints&);
-   float calculateDeterminant(float Mx[4][4]);
-   float calculateSubDeterminant(float Mx[4][4], uint8_t);
+   double calculateDeterminant(double Mx[4][4]);
+   double calculateSubDeterminant(double Mx[4][4], uint8_t);
    void calculateModifiedMMatrix(uint8_t);
    // helper variable for polynomial fitting
    PolynomialCoeffs polyCoeffs{};
    float   a[4];
-   float v[9];
-   float M_[4][4]{{0.0f}};
-   float M[4][4]{{0.0f}};
-   float detM;
-   float b[4]{{0.0f}};
+   double v[9];
+   double M_[4][4]{{0.0f}};
+   double M[4][4]{{0.0f}};
+   double detM;
+   double b[4]{{0.0f}};
 };
 
 }  // namespace Emg

@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_message_files(DIRECTORY msg
   FILES
-    PolynomCoeffs.msg)
+    PolynomialCoeffs.msg)
 
 add_service_files(DIRECTORY srv
   FILES
@@ -34,12 +34,15 @@ catkin_package(
 add_executable(lanelet_map_handler src/laneletHandler/laneletMapHandler.cpp src/linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.cpp)
 target_link_libraries(lanelet_map_handler ${catkin_LIBRARIES})
 
+add_executable(trajectory_controller src/trajectoryController.cpp src/linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.cpp)
+target_link_libraries(trajectory_controller ${catkin_LIBRARIES})
+
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
 )
 
-install(TARGETS lanelet_map_handler
+install(TARGETS lanelet_map_handler trajectory_controller
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
