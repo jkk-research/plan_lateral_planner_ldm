@@ -34,7 +34,6 @@ private:
     std::string gps_topic;
     std::string lanelet_frame;
     std::string ego_frame;
-    int polyline_count;
     bool visualize_path;
 
     PolynomialSubfunctions polynomialSubfunctions;

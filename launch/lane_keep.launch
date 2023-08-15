@@ -4,7 +4,6 @@
     <param name="gps_topic" value="/gps/duro/current_pose" />
     <param name="lanelet_frame" value="map" />
     <param name="ego_frame" value="test" />
-    <param name="polyline_count" value="2" />
     <param name="visualize_path" value="true" />
   </node>
 </launch>

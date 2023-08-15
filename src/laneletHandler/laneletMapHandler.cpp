@@ -34,7 +34,6 @@ bool LaneletHandler::init()
     nh_p.param<std::string>("lanelet2_path", lanelet2_path, "");
     nh_p.param<std::string>("lanelet_frame", lanelet_frame, "");
     nh_p.param<std::string>("ego_frame", ego_frame, "");
-    nh_p.param<int>("polyline_count", polyline_count, 2);
     nh_p.param<bool>("visualize_path", visualize_path, false);
 
     // init tf listener
@@ -162,6 +161,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     lane_keep_system::GetLaneletScenario::Request &req, 
     lane_keep_system::GetLaneletScenario::Response &res)
 {
+    int polyline_count = req.nodePointDistances.size();
+
     // get GPS data directly from topic
     geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>(gps_topic));
 
@@ -193,28 +194,36 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     scenarioFull.push_back(pathPoints[start_point]);
     scenarioPointDistances.push_back(0);
     int scenarioPtCounter = 1;
-    while (j < pathPoints.size() && current_length < req.nodePointDistances.back())
+    bool isLengthReached = false;
+    while (j < pathPoints.size() && !isLengthReached)
     {
         if (pathPoints[prev_pt].x == pathPoints[j].x)
         {
+            // point duplicate on map
             j++;
             continue;
         }
         
         float currentDistance = distanceBetweenPoints(pathPoints[prev_pt], pathPoints[j]);
-
-        scenarioPointDistances.push_back(currentDistance);
         current_length += currentDistance;
 
         // node point locations in scenario
-        if (nodePtIndex < req.nodePointDistances.size() && current_length > req.nodePointDistances[nodePtIndex])
+        if (nodePtIndex < req.nodePointDistances.size())
         {
-            // first point AFTER the length criteria
-            nodePtIndexes.push_back(scenarioPtCounter);
-            nodePtIndex++;
-        }
+            if (current_length > req.nodePointDistances[nodePtIndex])
+            {
+                // first point BEFORE the length criteria
+                nodePtIndexes.push_back(scenarioPtCounter - 1);
+                nodePtIndex++;
+            }
 
-        scenarioFull.push_back(pathPoints[j]);
+            scenarioPointDistances.push_back(currentDistance);
+            scenarioFull.push_back(pathPoints[j]);
+        }
+        else
+        {
+            isLengthReached = true;
+        }
 
         prev_pt = j;
         j++;
@@ -252,30 +261,31 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         ROS_ERROR("%s",ex.what());
         return false;
     }
-    
-    // slice trajectory into equal segments
+
+    // slice trajectory at nodePoints
     TrajectoryPoints segments[polyline_count];
     PolynomialCoeffs scenarioPolynomes[polyline_count];
-    int segmentSeparationSize = floor(scenarioFull_transformed.size() / (float)polyline_count);
-    
-    for (uint8_t i = 0; i < polyline_count - 1; i++)
-    {
-        for (uint8_t j = i*segmentSeparationSize; j <= (i+1)*segmentSeparationSize; j++)
-        {
-            scenarioPolynomes[i].length += scenarioPointDistances[j];
-            
-            segments[i].push_back(scenarioFull_transformed[j]);
-        }
-        scenarioPolynomes[i].length -= scenarioPointDistances[i*segmentSeparationSize]; // segment first point counted but should have 0 distance
-    }
-    for (uint8_t j = (polyline_count - 1)*segmentSeparationSize; j < scenarioFull_transformed.size(); j++)
-    {
-        scenarioPolynomes[polyline_count - 1].length += scenarioPointDistances[j];
 
-        segments[polyline_count - 1].push_back(scenarioFull_transformed[j]);
+    int nodePtIdxStart = 0;
+    int segmentIdx = 0;
+    for (int nodePtIdx: nodePtIndexes)
+    {
+        segments[segmentIdx].reserve(nodePtIdx - nodePtIdxStart + 1);
+
+        // add first point without adding length
+        segments[segmentIdx].push_back(scenarioFull_transformed[nodePtIdxStart]);
+
+        current_length = 0;
+        for (int i = nodePtIdxStart + 1; i <= nodePtIdx; i++)
+        {
+            current_length += scenarioPointDistances[i];
+            segments[segmentIdx].push_back(scenarioFull_transformed[i]);
+        }
+        scenarioPolynomes[segmentIdx].length = current_length;
+        nodePtIdxStart = nodePtIdx;
+        segmentIdx++;
     }
-    scenarioPolynomes[polyline_count - 1].length -= scenarioPointDistances[(polyline_count - 1)*segmentSeparationSize]; // segment first point counted but should have 0 distance
-    
+
     // fit polynomes
     for (uint8_t i = 0; i < polyline_count; i++)
     {
@@ -348,7 +358,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     
     // kappa averages
     //TODO: TEST
-    int nodePtIdxStart = 0;
+    nodePtIdxStart = 0;
     for (int nodePtIdx: nodePtIndexes)
     {
         float kappa = 0;
@@ -374,12 +384,12 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         initMarker(plannedPathMarker, lanelet_frame, "planned_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0, 1, 0.5));
         initMarker(scenarioPathMarker, lanelet_frame, "scenario_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 1));
-        initMarker(scenarioTransformedMarker, lanelet_frame, "scenario_transformed", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0, 0, 1));
+        initMarker(scenarioTransformedMarker, lanelet_frame, "scenario_transformed", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0, 1, 1));
 
         for (uint8_t i = 0; i < polyline_count; i++)
         {
-            initMarker(scenarioSegmentMarker[i], lanelet_frame, ("scenario_segment_"+std::to_string(i+1)), visualization_msgs::Marker::POINTS, getColorObj(0, 1, 1-i%2, 1));
-            initMarker(polyMarker[i], lanelet_frame, ("poly_"+std::to_string(i+1)), visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, i%2, 1));
+            initMarker(scenarioSegmentMarker[i], lanelet_frame, ("scenario_segment_"+std::to_string(i+1)), visualization_msgs::Marker::POINTS, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
+            initMarker(polyMarker[i], lanelet_frame, ("poly_"+std::to_string(i+1)), visualization_msgs::Marker::LINE_STRIP, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
         }
         
         for (Points2D pt: pathPoints)
