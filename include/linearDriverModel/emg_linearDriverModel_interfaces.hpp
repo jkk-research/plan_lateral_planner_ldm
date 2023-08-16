@@ -36,7 +36,6 @@ struct ScenarioPolynomials
 };
 
 
-// ? instead use scenarioCoeffs
 // struct CorridorInfoCoefficients
 // {
 //    float c0{0.0f};
@@ -65,14 +64,14 @@ struct NodePoints
    float    nodePointsTheta[4]{0.0f};
 };
 
-// struct SegmentParams
-// {
-//    Points2D                            initPose[3];
-//    vfc::CSI::si_radian_f32_t           initPoseTheta[3]{static_cast<vfc::CSI::si_radian_f32_t>(0.0f)};
-//    vfc::CSI::si_per_metre_f32_t        k[3]{static_cast<vfc::CSI::si_per_metre_f32_t>(0.0f)};
-//    vfc::CSI::si_per_square_metre_f32_t dk[3]{static_cast<vfc::CSI::si_per_square_metre_f32_t>(0.0f)};
-//    vfc::CSI::si_metre_f32_t            L[3]{static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
-// };
+struct SegmentParams
+{
+   Points2D initPose[3];
+   float    initPoseTheta[3]{0.0f};
+   float    k[3]{0.0f};
+   float    dk[3]{0.0f};
+   float    L[3]{0.0f};
+};
 
 // struct PolynomialCoeffsTwoSegments
 // {

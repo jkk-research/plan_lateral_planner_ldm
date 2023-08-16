@@ -23,8 +23,6 @@ class SegmentPlanner
 {
 public:
    // main method
-   void buildClothoid(const NodePoints&, SegmentParams&, vfc::uint8_t);
-   void buildPolynomial(const NodePoints&, PolynomialCoeffs&, SegmentParams&);
    void buildThreeSegmentPolynomial(
       const NodePoints&              nodePoints,
       PolynomialCoeffsThreeSegments& polynomialCoeffs,
@@ -35,7 +33,7 @@ private:
    ClothoidSubfunctions   clothoidSubfunctions{};
    PolynomialSubfunctions polynomialSubfunctions{};
    // helper variable
-   vfc::float32_t gaussMatrix[4][5]{{0.0f}};
+   float gaussMatrix[4][5]{{0.0f}};
 };
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
