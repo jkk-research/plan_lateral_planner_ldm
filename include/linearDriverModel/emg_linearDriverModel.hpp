@@ -24,12 +24,12 @@
 class LinearDriverModel  // cover class of DriverTrajectoryPlanner
 {
 public:
-   PolynomialCoeffsTwoSegments runCoeffsLite(
-      const CorridorInfoCoefficients&, const Pose2D&, const LDMParamIn&);
+   void runCoeffsLite(
+      const ScenarioPolynomials&, const Pose2D&, const LDMParamIn&);
 
    // Control Logic
    ControlLogic controlLogic{};
-
+   
    // Driver Model
    DriverModel driverModel{};
 
@@ -51,10 +51,11 @@ private:
 
    // Results of the curve fitting and return of coefficients towards TRC
    PolynomialCoeffsThreeSegments trajectoryCoeffsThreeSegments{};
-   PolynomialCoeffsTwoSegments coefficientsToController{};
 
    // internal variables
    bool                     firstCycle{true};
+
+   // TODO: MPC publisher
 };
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED

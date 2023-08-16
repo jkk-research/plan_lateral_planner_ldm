@@ -15,7 +15,6 @@
 #define DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
 
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
-#include "linearDriverModelUtilities/emg_linearDriverModel_clothoidSubfunctions.hpp"
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 
 
@@ -30,7 +29,6 @@ public:
       
 private:
    // helper class
-   ClothoidSubfunctions   clothoidSubfunctions{};
    PolynomialSubfunctions polynomialSubfunctions{};
    // helper variable
    float gaussMatrix[4][5]{{0.0f}};

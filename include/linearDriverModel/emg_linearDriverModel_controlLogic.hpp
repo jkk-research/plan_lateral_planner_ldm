@@ -21,23 +21,20 @@ class ControlLogic
 {
 public:
    // main method
-   bool calcValidity(const CorridorInfo&, const CorridorInfo&, const Pose2D&, const LDMParamIn&, const bool);
-   bool calcValidity(const CorridorInfoCoefficients&, const Pose2D&, const LDMParamIn&, const bool);
+   bool calcValidity(const ScenarioPolynomials&, const Pose2D&, const LDMParamIn&, const bool);
    // helper methods
-   void corridorValidityCalc(const CorridorInfo&, const CorridorInfo&, const Pose2D&);
-   void corridorValidityCalc(const CorridorInfoCoefficients&, const Pose2D&);
-   void initalizedCalc(const CorridorInfo&, const Pose2D&, const bool, const bool);
+   void corridorValidityCalc(const ScenarioPolynomials&, const Pose2D&);
    void initalizedCalc(const bool, const bool);
    void replanCalc(const LDMParamIn&);
 
    // arguments
-   vfc::float32_t egoPoseDatasX[4]{0.0f};
-   vfc::float32_t egoPoseDatasY[4]{0.0f};
-   vfc::float32_t egoPoseDatasTheta[4]{0.0f};
-   bool           initialized{false};
-   bool           validity{false};
-   bool           replan{false};
-   vfc::uint8_t   replanCount{0U};
+   float   egoPoseDatasX[4]{0.0f};
+   float   egoPoseDatasY[4]{0.0f};
+   float   egoPoseDatasTheta[4]{0.0f};
+   bool    initialized{false};
+   bool    validity{false};
+   bool    replan{false};
+   uint8_t replanCount{0U};
 };
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
