@@ -14,14 +14,10 @@
 #ifndef DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
 #define DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
 
-#include "../emg_linearDriverModel_interfaces.hpp"
-#include "../LinearDriverModelUtilities/emg_linearDriverModel_clothoidSubfunctions.hpp"
-#include "../LinearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
+#include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
+#include "linearDriverModelUtilities/emg_linearDriverModel_clothoidSubfunctions.hpp"
+#include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 
-namespace Rb
-{
-namespace Vmc
-{
 
 class SegmentPlanner
 {
@@ -41,8 +37,5 @@ private:
    // helper variable
    vfc::float32_t gaussMatrix[4][5]{{0.0f}};
 };
-
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED

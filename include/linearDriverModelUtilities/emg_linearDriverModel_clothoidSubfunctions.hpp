@@ -14,17 +14,8 @@
 #ifndef DC_EMG_LINEARDRIVERMODEL_CLOTHOIDSUBFUNCTIONS_HPP_INCLUDED
 #define DC_EMG_LINEARDRIVERMODEL_CLOTHOIDSUBFUNCTIONS_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
-#include "vfc/core/vfc_math.hpp"
-#include "vfc/core/vfc_algorithm.hpp"
+#include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
-#include "../emg_linearDriverModel_interfaces.hpp"
-
-
-namespace Rb
-{
-namespace Vmc
-{
 
 class ClothoidSubfunctions
 {
@@ -74,8 +65,5 @@ private:
    vfc::float32_t X0[17]{0};
    vfc::float32_t Y0[17]{0};
 };
-
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_CLOTHOIDSUBFUNCTIONS_HPP_INCLUDED

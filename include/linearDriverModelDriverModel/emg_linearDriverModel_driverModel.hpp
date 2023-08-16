@@ -20,8 +20,6 @@
 class DriverModel
 {
 public:
-   // main method
-   void calc(const CorridorInfo&, const LDMParamIn&, NodePoints&);
    // arguments
    float    U[7]{0.0f};
    float    x[3]{0.0f};

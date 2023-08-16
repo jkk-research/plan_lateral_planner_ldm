@@ -21,12 +21,9 @@ class CoordinateTransforms
 {
 public:
    void transform2D(const Points2D&, const Pose2D&, Points2D&);
-   void transform2D(const Points2D [300], const Pose2D&, const uint16_t, Points2D [300]);
+   void transform2D(const TrajectoryPoints, const Pose2D&, TrajectoryPoints);
    void reverseTransform2D(const Points2D&, const Pose2D&, Points2D&);
-   void reverseTransform2D(const Points2D [300], const Pose2D&, const uint16_t, Points2D [300]);
-   void angleTransform2D(const Pose2D&, const Pose2D&, Pose2D&);
-   void angleTransform2D(
-      const CorridorInfo&, const Pose2D&, const uint16_t, CorridorInfo&);
+   void reverseTransform2D(const TrajectoryPoints, const Pose2D&, TrajectoryPoints);
    void transformNodePoints(const NodePoints&, const Pose2D&, const Pose2D&, NodePoints&);
 };
 

@@ -14,14 +14,8 @@
 #ifndef DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
 #define DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
+#include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
-#include "emg_linearDriverModel_interfaces.hpp"
-
-namespace Rb
-{
-namespace Vmc
-{
 
 class ControlLogic
 {
@@ -45,8 +39,5 @@ public:
    bool           replan{false};
    vfc::uint8_t   replanCount{0U};
 };
-
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
