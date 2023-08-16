@@ -14,15 +14,8 @@
 #ifndef DC_EMG_LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
 #define DC_EMG_LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
+#include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
-#include "../emg_linearDriverModel_interfaces.hpp"
-
-
-namespace Rb
-{
-namespace Vmc
-{
 
 class DriverModel
 {
@@ -30,30 +23,27 @@ public:
    // main method
    void calc(const CorridorInfo&, const LDMParamIn&, NodePoints&);
    // arguments
-   vfc::float32_t U[7]{0.0f};
-   vfc::float32_t x[3]{0.0f};
-   vfc::float32_t nominal[12]{0.0f};
-   vfc::uint16_t  indices[4]{0U};
+   float    U[7]{0.0f};
+   float    x[3]{0.0f};
+   float    nominal[12]{0.0f};
+   uint16_t indices[4]{0U};
    
-   vfc::float32_t   XNominal[3]{0.0f};
-   vfc::float32_t   YNominal[3]{0.0f};
-   vfc::float32_t   thetaNominal[3]{0.0f};
-   vfc::float32_t   kappaNominal[3]{0.0f};
+   float    XNominal[3]{0.0f};
+   float    YNominal[3]{0.0f};
+   float    thetaNominal[3]{0.0f};
+   float    kappaNominal[3]{0.0f};
    PolynomialCoeffs validCoefficients{};
 
-   void           driverModelPlannerLite(
-                const CorridorInfoCoefficients&,
-                const PolynomialCoeffsThreeSegments& trajectoryCoeffsThreeSegments,
-                const LDMParamIn&,
-                NodePoints&);
+   void driverModelPlannerLite(
+      const ScenarioPolynomials&,
+      const PolynomialCoeffsThreeSegments&,
+      const LDMParamIn&,
+      NodePoints&);
 
 private:
    // helper methods
-   void offsetCalcLDM(const LDMParamIn&, const vfc::float32_t*, const vfc::float32_t*);
-   void offsetCalcExtendedLDM(const LDMParamIn&, const vfc::float32_t*);
+   void offsetCalcExtendedLDM(const LDMParamIn&, const std::vector<float>);
 };
 
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED

@@ -14,10 +14,6 @@
 #ifndef DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
 #define DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
-#include "vfc/core/vfc_math.hpp"
-#include "vfc/core/vfc_algorithm.hpp"
-
 #include "../emg_linearDriverModel_interfaces.hpp"
 #include "../LinearDriverModelUtilities/emg_linearDriverModel_clothoidSubfunctions.hpp"
 #include "../LinearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"

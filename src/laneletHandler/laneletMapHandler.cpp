@@ -9,14 +9,11 @@
 
 #include <boost/filesystem.hpp>
 
-#include <visualization_msgs/Marker.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
-#include "lane_keep_system/PolynomialCoeffs.h"
+#include <visualization_msgs/Marker.h>
 
 #include "laneletHandler/laneletMapHandler.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
-
 
 LaneletHandler::LaneletHandler(const ros::NodeHandle &nh, const ros::NodeHandle &nh_p) : nh(nh), nh_p(nh_p)
 {
@@ -166,6 +163,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     // get GPS data directly from topic
     geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>(gps_topic));
 
+    // TODO: OPTIMIZE
     // find nearest point to gps postition on path
     int start_point = 0;
     double min_dist = distanceBetweenPoints(gps_msg.pose.position, pathPoints[start_point]);
@@ -229,19 +227,19 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         j++;
         scenarioPtCounter++;
     }
-    
+
     // not enough points to plan (path ended)
     if (current_length < req.nodePointDistances.back())
     {
         for (uint8_t i = 0; i < polyline_count; i++)
         {
-            lane_keep_system::PolynomialCoeffs out_coeffs;
+            PolynomialCoeffs out_coeffs;
             res.coefficients.push_back(out_coeffs);
         }
 
         return true;
     }
-    
+
     // transform scenario pts to ego
     geometry_msgs::TransformStamped transformStamped;
     TrajectoryPoints scenarioFull_transformed;
@@ -292,15 +290,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         float polyLength = scenarioPolynomes[i].length;
         scenarioPolynomes[i] = polynomialSubfunctions.fitThirdOrderPolynomial(segments[i]);
         scenarioPolynomes[i].length = polyLength;
-
-        lane_keep_system::PolynomialCoeffs coeffs_msg;
-        coeffs_msg.c0 = scenarioPolynomes[i].c0;
-        coeffs_msg.c1 = scenarioPolynomes[i].c1;
-        coeffs_msg.c2 = scenarioPolynomes[i].c2;
-        coeffs_msg.c3 = scenarioPolynomes[i].c3;
-        coeffs_msg.length = scenarioPolynomes[i].length;
         
-        res.coefficients.push_back(coeffs_msg);
+        res.coefficients.push_back(scenarioPolynomes[i]);
     }
 
     // calculate kappa

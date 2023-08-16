@@ -11,7 +11,7 @@
 ///  @file
 ///=============================================================================
 
-#include "../emg_linearDriverModel.hpp"
+#include "linearDriverModel/emg_linearDriverModel.hpp"
 
 namespace Rb
 {

@@ -14,31 +14,12 @@
 #ifndef DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED
 #define DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
-#include "vfc/container/vfc_fixedvector.hpp"
-#include "vfc/core/vfc_functionattributes.hpp"
-#include "vfc/container/vfc_carray.hpp"
+#include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
+#include "linearDriverModel/emg_linearDriverModel_controlLogic.hpp"
+#include "linearDriverModelDriverModel/emg_linearDriverModel_driverModel.hpp"
+#include "linearDriverModelPlanner/emg_linearDriverModel_segmentPlanner.hpp"
+#include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
 
-#include "emg_linearDriverModel_interfaces.hpp"
-#include "emg_linearDriverModel_controlLogic.hpp"
-#include "LinearDriverModelDriverModel/emg_linearDriverModel_driverModel.hpp"
-#include "LinearDriverModelPlanner/emg_linearDriverModel_segmentPlanner.hpp"
-#include "LinearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
-
-// >>>IntecrioMeasurement<<<
-#if !defined _MSC_VER && !defined(__GNUC__)
-extern "C"
-{
-#endif
-#include "vmc/runnables/ES910Wrapper/linearDriverModel.h"
-#if !defined _MSC_VER && !defined(__GNUC__)
-}
-#endif
-
-namespace Rb
-{
-namespace Vmc
-{
 
 class LinearDriverModel  // cover class of DriverTrajectoryPlanner
 {
@@ -75,8 +56,5 @@ private:
    // internal variables
    bool                     firstCycle{true};
 };
-
-}  // namespace Emg
-}  // namespace Dc
 
 #endif  // DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED
