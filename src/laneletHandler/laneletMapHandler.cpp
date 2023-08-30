@@ -35,6 +35,9 @@ bool LaneletHandler::init()
 
     // init tf listener
     tfListener = std::make_unique<tf2_ros::TransformListener>(tfBuffer);
+    // init gps transform
+    ros::Duration(1,0).sleep();
+    lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", ros::Time(0));
 
     // get lanelet file path
     std::string lanelet2_file_path;
@@ -51,8 +54,7 @@ bool LaneletHandler::init()
 
     // load lanelet file
     lanelet::ErrorMessages errors;
-    lanelet::projection::MGRSProjector projector;
-    lanelet::LaneletMapPtr map = lanelet::load(lanelet2_file_path, projector, &errors);
+    lanelet::LaneletMapPtr map = lanelet::load(lanelet2_file_path, lanelet::projection::UtmProjector(lanelet::Origin({46.894188, 16.834861, 0})), &errors);
     
     for (const auto& error : errors)
     {
@@ -67,7 +69,7 @@ bool LaneletHandler::init()
     lanelet::utils::overwriteLaneletsCenterline(map, false);
 
     // isolate road lanes
-    roadLanelets = lanelet::utils::query::roadLanelets(lanelet::utils::query::laneletLayer(map));
+    roadLanelets = lanelet::utils::query::laneletLayer(map);
     
     // Initialize path planning
     lanelet::traffic_rules::TrafficRulesPtr trafficRules{lanelet::traffic_rules::TrafficRulesFactory::instance().create(lanelet::Locations::Germany, lanelet::Participants::Vehicle)};
@@ -75,7 +77,7 @@ bool LaneletHandler::init()
 
     // path planning
     // TODO: make from and to inputs (tf / file / parameter)
-    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(12560), map->laneletLayer.get(12607));
+    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(-27757), map->laneletLayer.get(-27749));
 
     // collect points from planned path
     pathPoints.clear();
@@ -109,9 +111,14 @@ bool LaneletHandler::init()
         pub_road_lines.publish(markerArray);
     }
     
+    // save last point index for faster nearest neighbor search
+    lastStartPointIdx = 0;
+    nearestNeighborThreshold = 2;
+
     // init lanelet scenario service
     lanelet_service_ = nh.advertiseService("/get_lanelet_scenario", &LaneletHandler::LaneletScenarioServiceCallback, this);
-
+    
+    ROS_INFO("ok");
     return true;
 }
 
@@ -160,12 +167,15 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 {
     int polyline_count = req.nodePointDistances.size();
 
-    // get GPS data directly from topic
+    // get GPS data from topic
     geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>(gps_topic));
+    
+    // transform gps coordinates from global frame to lanelet frame
+    tf2::doTransform<geometry_msgs::PoseStamped>(gps_msg, gps_msg, lanelet_2_map_transform);
 
-    // TODO: OPTIMIZE
     // find nearest point to gps postition on path
-    int start_point = 0;
+    int start_point = lastStartPointIdx;
+    bool nnTrheshold_reached = false;
     double min_dist = distanceBetweenPoints(gps_msg.pose.position, pathPoints[start_point]);
     for (int i = start_point+1; i < pathPoints.size(); i++)
     {
@@ -176,7 +186,13 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             min_dist = current_dist;
             start_point = i;
         }
+
+        if (current_dist < nearestNeighborThreshold)
+            nnTrheshold_reached = true;
+        else if (nnTrheshold_reached)
+            break;
     }
+    lastStartPointIdx = start_point;
 
     // get centerline pts until scenario_length is reached
     TrajectoryPoints scenarioFull;
@@ -227,7 +243,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         j++;
         scenarioPtCounter++;
     }
-
+    
     // not enough points to plan (path ended)
     if (current_length < req.nodePointDistances.back())
     {
@@ -244,21 +260,31 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     geometry_msgs::TransformStamped transformStamped;
     TrajectoryPoints scenarioFull_transformed;
     scenarioFull_transformed.reserve(scenarioFull.size());
-    try
+
+    tf2::Quaternion q(
+        gps_msg.pose.orientation.x,
+        gps_msg.pose.orientation.y,
+        gps_msg.pose.orientation.z,
+        gps_msg.pose.orientation.w
+    );
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    
+    for (Points2D pt: scenarioFull)
     {
-        geometry_msgs::TransformStamped lanelet2ego_transform = tfBuffer.lookupTransform(ego_frame, lanelet_frame, ros::Time(0));
-        for (Points2D pt: scenarioFull)
-        {
-            geometry_msgs::Point p;
-            tf2::doTransform<geometry_msgs::Point>(pt, p, lanelet2ego_transform);
-            scenarioFull_transformed.push_back(p);
-        }
+        Points2D transformedPoint;
+
+        Pose2D egopose;
+        egopose.Pose2DCoordinates.x = gps_msg.pose.position.x;
+        egopose.Pose2DCoordinates.y = gps_msg.pose.position.y;
+        egopose.Pose2DTheta = yaw;
+
+        coordinateTransforms.transform2D(pt, egopose, transformedPoint);
+
+        scenarioFull_transformed.push_back(transformedPoint);
     }
-    catch (tf2::TransformException &ex)
-    {
-        ROS_ERROR("%s",ex.what());
-        return false;
-    }
+    
 
     // slice trajectory at nodePoints
     TrajectoryPoints segments[polyline_count];
@@ -362,7 +388,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         res.kappa.push_back(kappa);
     }
-
+    
     // visualization
     if (visualize_path)
     {
@@ -373,8 +399,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         visualization_msgs::Marker scenarioSegmentMarker[polyline_count];
         visualization_msgs::Marker polyMarker[polyline_count];
 
-        initMarker(plannedPathMarker, lanelet_frame, "planned_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0, 1, 0.5));
-        initMarker(scenarioPathMarker, lanelet_frame, "scenario_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 1));
+        initMarker(plannedPathMarker, lanelet_frame, "planned_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
+        initMarker(scenarioPathMarker, lanelet_frame, "scenario_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
         initMarker(scenarioTransformedMarker, lanelet_frame, "scenario_transformed", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0, 1, 1));
 
         for (uint8_t i = 0; i < polyline_count; i++)
@@ -413,10 +439,9 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         markerArray.markers.push_back(plannedPathMarker);
         markerArray.markers.push_back(scenarioPathMarker);
         markerArray.markers.push_back(scenarioTransformedMarker);
+
+        pub_road_lines.publish(markerArray);
     }
-
-    pub_road_lines.publish(markerArray);
-
     return true;
 }
 

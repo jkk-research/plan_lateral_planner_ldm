@@ -24,8 +24,8 @@
 class LinearDriverModel  // cover class of DriverTrajectoryPlanner
 {
 public:
-   void runCoeffsLite(
-      const ScenarioPolynomials&, const Pose2D&, const LDMParamIn&);
+   PolynomialCoeffsThreeSegments runCoeffsLite(
+      const ScenarioPolynomials& corridorCoefficients, const Pose2D& egoPoseGlobal, const LDMParamIn& parameters);
 
    // Control Logic
    ControlLogic controlLogic{};

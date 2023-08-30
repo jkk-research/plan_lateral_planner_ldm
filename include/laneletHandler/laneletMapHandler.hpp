@@ -10,8 +10,10 @@
 #include "lane_keep_system/GetLaneletScenario.h"
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
+#include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
 
 #include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <vector>
 #include <memory>
@@ -27,6 +29,7 @@ private:
     ros::Publisher pub_road_lines;
     tf2_ros::Buffer tfBuffer;
     std::unique_ptr<tf2_ros::TransformListener> tfListener;
+    geometry_msgs::TransformStamped lanelet_2_map_transform;
 
     visualization_msgs::MarkerArray markerArray;
     lanelet::ConstLanelets roadLanelets;
@@ -35,8 +38,11 @@ private:
     std::string lanelet_frame;
     std::string ego_frame;
     bool visualize_path;
+    int lastStartPointIdx;
+    float nearestNeighborThreshold; // in meters
 
     PolynomialSubfunctions polynomialSubfunctions;
+    CoordinateTransforms coordinateTransforms;
 
     // Load parameters, load lanelet file, plan path
     bool init();
