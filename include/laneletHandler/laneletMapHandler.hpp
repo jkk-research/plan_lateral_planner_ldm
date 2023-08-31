@@ -5,6 +5,7 @@
 
 #include <lanelet2_core/LaneletMap.h>
 
+#include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include "lane_keep_system/GetLaneletScenario.h"
@@ -27,6 +28,7 @@ private:
     ros::NodeHandle nh_p;
     ros::ServiceServer lanelet_service_;
     ros::Publisher pub_road_lines;
+    ros::Subscriber sub_gps;
     tf2_ros::Buffer tfBuffer;
     std::unique_ptr<tf2_ros::TransformListener> tfListener;
     geometry_msgs::TransformStamped lanelet_2_map_transform;
@@ -37,6 +39,7 @@ private:
     std::string gps_topic;
     std::string lanelet_frame;
     std::string ego_frame;
+    geometry_msgs::PoseStamped currentGPSMsg;
     bool visualize_path;
     int lastStartPointIdx;
     float nearestNeighborThreshold; // in meters
@@ -55,6 +58,8 @@ private:
     // Initialize markers
     void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color);
 
+    // ROS callback for gps topic
+    void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);
     // ROS service callback for calculating polynomial coefficients for the path ahead of the car
     bool LaneletScenarioServiceCallback(lane_keep_system::GetLaneletScenario::Request &req, lane_keep_system::GetLaneletScenario::Response &res);
 };

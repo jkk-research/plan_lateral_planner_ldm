@@ -10,7 +10,6 @@
 #include <boost/filesystem.hpp>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <visualization_msgs/Marker.h>
 
 #include "laneletHandler/laneletMapHandler.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
@@ -115,6 +114,9 @@ bool LaneletHandler::init()
     lastStartPointIdx = 0;
     nearestNeighborThreshold = 2;
 
+    // subscribe to gps
+    sub_gps = nh.subscribe(gps_topic, 1, &LaneletHandler::gpsCallback, this);
+
     // init lanelet scenario service
     lanelet_service_ = nh.advertiseService("/get_lanelet_scenario", &LaneletHandler::LaneletScenarioServiceCallback, this);
     
@@ -161,25 +163,29 @@ Points2D LaneletHandler::getPointOnPoly(float x, PolynomialCoeffs coeffs)
     return pt;
 }
 
+void LaneletHandler::gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg)
+{
+    currentGPSMsg = *gps_msg;
+}
+
 bool LaneletHandler::LaneletScenarioServiceCallback(
     lane_keep_system::GetLaneletScenario::Request &req, 
     lane_keep_system::GetLaneletScenario::Response &res)
 {
     int polyline_count = req.nodePointDistances.size();
 
-    // get GPS data from topic
-    geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>(gps_topic));
-    
+    geometry_msgs::PoseStamped gps_pose;
+
     // transform gps coordinates from global frame to lanelet frame
-    tf2::doTransform<geometry_msgs::PoseStamped>(gps_msg, gps_msg, lanelet_2_map_transform);
+    tf2::doTransform<geometry_msgs::PoseStamped>(currentGPSMsg, gps_pose, lanelet_2_map_transform);
 
     // find nearest point to gps postition on path
     int start_point = lastStartPointIdx;
     bool nnTrheshold_reached = false;
-    double min_dist = distanceBetweenPoints(gps_msg.pose.position, pathPoints[start_point]);
+    double min_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[start_point]);
     for (int i = start_point+1; i < pathPoints.size(); i++)
     {
-        double current_dist = distanceBetweenPoints(gps_msg.pose.position, pathPoints[i]);
+        double current_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[i]);
 
         if (current_dist < min_dist)
         {
@@ -262,10 +268,10 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     scenarioFull_transformed.reserve(scenarioFull.size());
 
     tf2::Quaternion q(
-        gps_msg.pose.orientation.x,
-        gps_msg.pose.orientation.y,
-        gps_msg.pose.orientation.z,
-        gps_msg.pose.orientation.w
+        gps_pose.pose.orientation.x,
+        gps_pose.pose.orientation.y,
+        gps_pose.pose.orientation.z,
+        gps_pose.pose.orientation.w
     );
     tf2::Matrix3x3 m(q);
     double roll, pitch, yaw;
@@ -276,8 +282,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         Points2D transformedPoint;
 
         Pose2D egopose;
-        egopose.Pose2DCoordinates.x = gps_msg.pose.position.x;
-        egopose.Pose2DCoordinates.y = gps_msg.pose.position.y;
+        egopose.Pose2DCoordinates.x = gps_pose.pose.position.x;
+        egopose.Pose2DCoordinates.y = gps_pose.pose.position.y;
         egopose.Pose2DTheta = yaw;
 
         coordinateTransforms.transform2D(pt, egopose, transformedPoint);
