@@ -1,7 +1,6 @@
 <launch>
   <node pkg="lane_keep_system" type="lanelet_map_handler" name="lanelet_map_handler" output="screen">
     <param name="lanelet2_path" value="$(find lane_keep_system)/laneletMaps/mw.osm" />
-    <param name="gps_topic" value="/gps/duro/current_pose" />
     <param name="lanelet_frame" value="map_zala_0" />
     <param name="ego_frame" value="gps" />
     <param name="visualize_path" value="true" />

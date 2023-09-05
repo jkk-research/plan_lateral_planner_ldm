@@ -10,16 +10,30 @@
 #include <vector>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
 class TrajectoryPlanner
 {
 public:
     TrajectoryPlanner(const ros::NodeHandle &nh);
+
+    bool runTrajectory();
 private:
     ros::NodeHandle nh;
     ros::ServiceClient client;
+    ros::Publisher pub_visualization;
+    ros::Subscriber sub_gps;
+    geometry_msgs::PoseStamped currentGPSMsg;
+    visualization_msgs::MarkerArray markerArray;
+
+    LDMParamIn params;
     LinearDriverModel ldm;
 
     ScenarioPolynomials GetScenario();
+    // ROS callback for gps topic
+    void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);
 };
 
 #endif // TRAJECTORY_CONTROLLER_HPP_

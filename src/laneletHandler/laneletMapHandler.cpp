@@ -26,7 +26,6 @@ bool LaneletHandler::init()
     std::string lanelet2_path;
     
     // get parameters
-    nh_p.param<std::string>("gps_topic", gps_topic, "/gps/duro/current_pose");
     nh_p.param<std::string>("lanelet2_path", lanelet2_path, "");
     nh_p.param<std::string>("lanelet_frame", lanelet_frame, "");
     nh_p.param<std::string>("ego_frame", ego_frame, "");
@@ -114,9 +113,6 @@ bool LaneletHandler::init()
     lastStartPointIdx = 0;
     nearestNeighborThreshold = 2;
 
-    // subscribe to gps
-    sub_gps = nh.subscribe(gps_topic, 1, &LaneletHandler::gpsCallback, this);
-
     // init lanelet scenario service
     lanelet_service_ = nh.advertiseService("/get_lanelet_scenario", &LaneletHandler::LaneletScenarioServiceCallback, this);
     
@@ -163,11 +159,6 @@ Points2D LaneletHandler::getPointOnPoly(float x, PolynomialCoeffs coeffs)
     return pt;
 }
 
-void LaneletHandler::gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg)
-{
-    currentGPSMsg = *gps_msg;
-}
-
 bool LaneletHandler::LaneletScenarioServiceCallback(
     lane_keep_system::GetLaneletScenario::Request &req, 
     lane_keep_system::GetLaneletScenario::Response &res)
@@ -177,8 +168,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     geometry_msgs::PoseStamped gps_pose;
 
     // transform gps coordinates from global frame to lanelet frame
-    tf2::doTransform<geometry_msgs::PoseStamped>(currentGPSMsg, gps_pose, lanelet_2_map_transform);
-
+    tf2::doTransform<geometry_msgs::PoseStamped>(req.gps, gps_pose, lanelet_2_map_transform);
+    
     // find nearest point to gps postition on path
     int start_point = lastStartPointIdx;
     bool nnTrheshold_reached = false;
@@ -290,7 +281,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         scenarioFull_transformed.push_back(transformedPoint);
     }
-    
 
     // slice trajectory at nodePoints
     TrajectoryPoints segments[polyline_count];
@@ -398,6 +388,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     // visualization
     if (visualize_path)
     {
+        markerArray.markers.clear();
+
         // visualize original and transformed paths
         visualization_msgs::Marker plannedPathMarker;
         visualization_msgs::Marker scenarioPathMarker;
@@ -420,7 +412,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             plannedPathMarker.points.push_back(pt);
         }
 
-        for (uint8_t i = 0; i < scenarioFull.size(); i++)
+        for (uint16_t i = 0; i < scenarioFull.size(); i++)
         {
             scenarioPathMarker.points.push_back(scenarioFull[i]);
             

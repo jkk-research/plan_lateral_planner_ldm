@@ -1,47 +1,109 @@
 #include "trajectoryController/trajectoryPlanner.hpp"
 
+void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color)
+{
+    m.header.frame_id = frame_id;
+    m.header.stamp = ros::Time::now();
+    m.lifetime = ros::Duration(0);
+    m.ns = ns;
+    m.type = type;
+    m.scale.x = 0.3;
+    m.scale.y = 0.3;
+    m.scale.z = 0.3;
+    m.color.r = color.r;
+    m.color.g = color.g;
+    m.color.b = color.b;
+    m.color.a = color.a;
+}
+
+std_msgs::ColorRGBA getColorObj(float r, float g, float b, float a)
+{
+	std_msgs::ColorRGBA c;
+    c.r = r;
+	c.g = g;
+	c.b = b;
+	c.a = a;
+    return c;
+}
+
+void TrajectoryPlanner::gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg)
+{
+    currentGPSMsg = *gps_msg;
+}
+
 TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_) : nh(nh_)
 {
+    // subscribe to gps
+    sub_gps = nh.subscribe("/gps/duro/current_pose", 1, &TrajectoryPlanner::gpsCallback, this);
+    ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose");
+
     client = nh.serviceClient<lane_keep_system::GetLaneletScenario>("/get_lanelet_scenario", true);
 
-    while (true)
+    pub_visualization = nh.advertise<visualization_msgs::MarkerArray>("ldm_path", 1, true);
+
+    // TODO: init params
+}
+
+bool TrajectoryPlanner::runTrajectory()
+{
+    ScenarioPolynomials sp = GetScenario();
+    
+    // for (auto x: sp.coeffs)
+    // {
+    //     ROS_INFO("%f - %f - %f - %f", x.c0, x.c1, x.c2, x.c3);
+    // }
+
+    Pose2D egoPose;
+    geometry_msgs::PoseStamped gps_pose = currentGPSMsg;
+    egoPose.Pose2DCoordinates.x = gps_pose.pose.position.x;
+    egoPose.Pose2DCoordinates.y = gps_pose.pose.position.y;
+    egoPose.Pose2DCoordinates.z = gps_pose.pose.position.z;
+
+    tf2::Quaternion q(
+        gps_pose.pose.orientation.x,
+        gps_pose.pose.orientation.y,
+        gps_pose.pose.orientation.z,
+        gps_pose.pose.orientation.w
+    );
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    egoPose.Pose2DTheta = yaw;
+
+    PolynomialCoeffsThreeSegments pcts = ldm.runCoeffsLite(
+        sp,
+        egoPose,
+        params
+    );
+
+    markerArray.markers.clear();
+    int lastX = 0;
+    int colors[4]{1,0,0,0};
+    for (int i = 0; i < 3; i++)
     {
-        ScenarioPolynomials sp = GetScenario();
+        ROS_INFO("%f - %f - %f - %f", pcts.segmentCoeffs[i].c0, pcts.segmentCoeffs[i].c1, pcts.segmentCoeffs[i].c2, pcts.segmentCoeffs[i].c3);
 
-        Pose2D egoPose;
-        geometry_msgs::PoseStamped gps_msg = *(ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose"));
-        egoPose.Pose2DCoordinates.x = gps_msg.pose.position.x;
-        egoPose.Pose2DCoordinates.y = gps_msg.pose.position.y;
-        egoPose.Pose2DCoordinates.z = gps_msg.pose.position.z;
-
-        tf2::Quaternion q(
-            gps_msg.pose.orientation.x,
-            gps_msg.pose.orientation.y,
-            gps_msg.pose.orientation.z,
-            gps_msg.pose.orientation.w
-        );
-        tf2::Matrix3x3 m(q);
-        double roll, pitch, yaw;
-        m.getRPY(roll, pitch, yaw);
-
-        ROS_INFO("%f", yaw);
-
-        egoPose.Pose2DTheta = yaw;
-        
-        LDMParamIn params;
-        
-        for (auto x: sp.coeffs){
-            ROS_INFO("%f - %f - %f - %f", x.c0, x.c1, x.c2, x.c3);
+        visualization_msgs::Marker mark;
+        initMarker(mark, "map_zala_0", "segment "+i, visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
+        colors[i] = 0;
+        colors[i+1] = 1;
+        for (int j = lastX; j < params.P_nodePointDistances[i]; j++)
+        {
+            Points2D p;
+            p.x = j;
+            p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * j * j + pcts.segmentCoeffs[i].c3 * j * j * j;
+            mark.points.push_back(p);
         }
-
-        PolynomialCoeffsThreeSegments pcts = ldm.runCoeffsLite(
-            sp,
-            egoPose,
-            params
-        );
-
-        ROS_INFO("%f - %f - %f - %f", pcts.segmentCoeffs[0].c0, pcts.segmentCoeffs[0].c1, pcts.segmentCoeffs[0].c2, pcts.segmentCoeffs[0].c3);
+        lastX = params.P_nodePointDistances[i];
+        markerArray.markers.push_back(mark);
     }
+    
+    ROS_INFO("=====");
+
+    pub_visualization.publish(markerArray);
+
+    return true;
 }
 
 ScenarioPolynomials TrajectoryPlanner::GetScenario()
@@ -52,8 +114,10 @@ ScenarioPolynomials TrajectoryPlanner::GetScenario()
     srv.request.nodePointDistances.push_back(10);
     srv.request.nodePointDistances.push_back(30);
     srv.request.nodePointDistances.push_back(80);
+    srv.request.gps = currentGPSMsg;
+    
     client.call(srv);
-
+    
     sp.coeffs.reserve(srv.response.coefficients.size());
     sp.kappaNominal.reserve(srv.response.kappa.size());
 
@@ -74,9 +138,22 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "trajectory_planner");
     ros::NodeHandle nh;
 
-    TrajectoryPlanner lh(nh);
+    TrajectoryPlanner trajectoryPlanner(nh);
+    ros::spinOnce();
+    ros::Duration(1).sleep();
 
-    ros::spin();
+    ros::Rate rate(5);
+
+    while (ros::ok)
+    {
+        ros::Time t0 = ros::Time::now();
+        trajectoryPlanner.runTrajectory();
+        ros::Time t1 = ros::Time::now();
+        ROS_INFO("Time: %f", (t1-t0).toSec());
+
+        ros::spinOnce();
+        rate.sleep();
+    }
 
     return 0;
 }

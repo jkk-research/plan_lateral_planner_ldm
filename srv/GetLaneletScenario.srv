@@ -1,3 +1,4 @@
+geometry_msgs/PoseStamped gps
 float32[] nodePointDistances
 ---
 PolynomialCoeffs[] coefficients
