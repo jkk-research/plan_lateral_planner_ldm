@@ -11,8 +11,8 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
+#define LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
 
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
@@ -27,4 +27,4 @@ public:
    void transformNodePoints(const NodePoints&, const Pose2D&, const Pose2D&, NodePoints&);
 };
 
-#endif  // DC_EMG_LINEARDRIVERMODEL_COORDINATETRANSFORM_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_COORDINATETRANSFORM_HPP_INCLUDED

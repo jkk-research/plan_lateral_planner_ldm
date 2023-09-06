@@ -35,8 +35,7 @@ PolynomialCoeffsThreeSegments LinearDriverModel::runCoeffsLite(
          egoPoseGlobalPlan = egoPoseGlobal;
 
          // calculating the Node Points
-         driverModel.driverModelPlannerLite(
-            corridorCoefficients, trajectoryCoeffsThreeSegments, parameters, nodePoints);
+         driverModel.driverModelPlannerLite(corridorCoefficients, trajectoryCoeffsThreeSegments, parameters, nodePoints);
 
          // calculating the polynomial coefficients for each segments
 
@@ -52,13 +51,10 @@ PolynomialCoeffsThreeSegments LinearDriverModel::runCoeffsLite(
 
       else
       {
-         memset(
-            nodePointsEgoFrame.nodePointsCoordinates, 0.0f, sizeof(nodePointsEgoFrame.nodePointsCoordinates));
+         memset(nodePointsEgoFrame.nodePointsCoordinates, 0.0f, sizeof(nodePointsEgoFrame.nodePointsCoordinates));
 
-         coordinateTransforms
-            .transformNodePoints(nodePoints, egoPoseGlobalPlan, egoPoseGlobal, nodePointsEgoFrame);
-         segmentPlanner.buildThreeSegmentPolynomial(
-            nodePointsEgoFrame, trajectoryCoeffsThreeSegments, segmentParamsEgoFrame);
+         coordinateTransforms.transformNodePoints(nodePoints, egoPoseGlobalPlan, egoPoseGlobal, nodePointsEgoFrame);
+         segmentPlanner.buildThreeSegmentPolynomial(nodePointsEgoFrame, trajectoryCoeffsThreeSegments, segmentParamsEgoFrame);
          for (uint8_t i{0U}; i < 3; i++)
          {
             trajectoryCoeffsThreeSegments.sectionBorderStart[i] =

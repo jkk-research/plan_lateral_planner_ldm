@@ -38,6 +38,7 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_) : nh(nh_)
     ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose");
 
     client = nh.serviceClient<lane_keep_system::GetLaneletScenario>("/get_lanelet_scenario", true);
+    client.waitForExistence();
 
     pub_visualization = nh.advertise<visualization_msgs::MarkerArray>("ldm_path", 1, true);
 
@@ -48,11 +49,6 @@ bool TrajectoryPlanner::runTrajectory()
 {
     ScenarioPolynomials sp = GetScenario();
     
-    // for (auto x: sp.coeffs)
-    // {
-    //     ROS_INFO("%f - %f - %f - %f", x.c0, x.c1, x.c2, x.c3);
-    // }
-
     Pose2D egoPose;
     geometry_msgs::PoseStamped gps_pose = currentGPSMsg;
     egoPose.Pose2DCoordinates.x = gps_pose.pose.position.x;
@@ -78,24 +74,22 @@ bool TrajectoryPlanner::runTrajectory()
     );
 
     markerArray.markers.clear();
-    int lastX = 0;
     int colors[4]{1,0,0,0};
     for (int i = 0; i < 3; i++)
     {
         ROS_INFO("%f - %f - %f - %f", pcts.segmentCoeffs[i].c0, pcts.segmentCoeffs[i].c1, pcts.segmentCoeffs[i].c2, pcts.segmentCoeffs[i].c3);
 
         visualization_msgs::Marker mark;
-        initMarker(mark, "map_zala_0", "segment "+i, visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
+        initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
         colors[i] = 0;
         colors[i+1] = 1;
-        for (int j = lastX; j < params.P_nodePointDistances[i]; j++)
+        for (int j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
         {
             Points2D p;
             p.x = j;
             p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * j * j + pcts.segmentCoeffs[i].c3 * j * j * j;
             mark.points.push_back(p);
         }
-        lastX = params.P_nodePointDistances[i];
         markerArray.markers.push_back(mark);
     }
     
@@ -111,9 +105,9 @@ ScenarioPolynomials TrajectoryPlanner::GetScenario()
     ScenarioPolynomials sp;
 
     lane_keep_system::GetLaneletScenario srv;
-    srv.request.nodePointDistances.push_back(10);
-    srv.request.nodePointDistances.push_back(30);
-    srv.request.nodePointDistances.push_back(80);
+    srv.request.nodePointDistances.push_back(params.P_nodePointDistances[0]);
+    srv.request.nodePointDistances.push_back(params.P_nodePointDistances[1]);
+    srv.request.nodePointDistances.push_back(params.P_nodePointDistances[2]);
     srv.request.gps = currentGPSMsg;
     
     client.call(srv);
@@ -140,9 +134,9 @@ int main(int argc, char** argv)
 
     TrajectoryPlanner trajectoryPlanner(nh);
     ros::spinOnce();
-    ros::Duration(1).sleep();
+    ros::Duration(0.5).sleep();
 
-    ros::Rate rate(5);
+    ros::Rate rate(20);
 
     while (ros::ok)
     {

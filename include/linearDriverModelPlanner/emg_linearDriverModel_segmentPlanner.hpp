@@ -11,8 +11,8 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
+#define LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
 
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
@@ -34,4 +34,4 @@ private:
    float gaussMatrix[4][5]{{0.0f}};
 };
 
-#endif  // DC_EMG_LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED

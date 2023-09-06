@@ -171,17 +171,17 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     tf2::doTransform<geometry_msgs::PoseStamped>(req.gps, gps_pose, lanelet_2_map_transform);
     
     // find nearest point to gps postition on path
-    int start_point = lastStartPointIdx;
+    int startPointIdx = lastStartPointIdx;
     bool nnTrheshold_reached = false;
-    double min_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[start_point]);
-    for (int i = start_point+1; i < pathPoints.size(); i++)
+    double min_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[startPointIdx]);
+    for (int i = startPointIdx+1; i < pathPoints.size(); i++)
     {
         double current_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[i]);
 
         if (current_dist < min_dist)
         {
             min_dist = current_dist;
-            start_point = i;
+            startPointIdx = i;
         }
 
         if (current_dist < nearestNeighborThreshold)
@@ -189,33 +189,60 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         else if (nnTrheshold_reached)
             break;
     }
-    lastStartPointIdx = start_point;
+    lastStartPointIdx = startPointIdx;
+    
+
+    // transform scenario pts to ego
+    geometry_msgs::TransformStamped transformStamped;
+
+    tf2::Quaternion q(
+        gps_pose.pose.orientation.x,
+        gps_pose.pose.orientation.y,
+        gps_pose.pose.orientation.z,
+        gps_pose.pose.orientation.w
+    );
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
 
     // get centerline pts until scenario_length is reached
-    TrajectoryPoints scenarioFull;
+    TrajectoryPoints scenarioFullEGO;
 
     double current_length = 0;
-    int prev_pt = start_point;
-    int j = start_point + 1;
+    int pathPointIdx = startPointIdx + 1;
     std::vector<float> scenarioPointDistances; // distances compared to previous point
 
     std::vector<int> nodePtIndexes; // node point locations in scenario
     int nodePtIndex = 0;
     
-    scenarioFull.push_back(pathPoints[start_point]);
     scenarioPointDistances.push_back(0);
     int scenarioPtCounter = 1;
     bool isLengthReached = false;
-    while (j < pathPoints.size() && !isLengthReached)
+
+    Points2D prev_pt;
+
+    Points2D transformedPoint;
+    Pose2D egopose;
+    egopose.Pose2DCoordinates.x = gps_pose.pose.position.x;
+    egopose.Pose2DCoordinates.y = gps_pose.pose.position.y;
+    egopose.Pose2DTheta = yaw;
+
+    coordinateTransforms.transform2D(pathPoints[startPointIdx], egopose, prev_pt);
+    scenarioFullEGO.push_back(prev_pt);
+
+    while (pathPointIdx < pathPoints.size() && !isLengthReached)
     {
-        if (pathPoints[prev_pt].x == pathPoints[j].x)
+        coordinateTransforms.transform2D(pathPoints[pathPointIdx], egopose, transformedPoint); // transform point to ego
+
+        if (prev_pt.x == transformedPoint.x)
         {
-            // point duplicate on map
-            j++;
+            // consecutive point duplicate on map
+            pathPointIdx++;
             continue;
         }
         
-        float currentDistance = distanceBetweenPoints(pathPoints[prev_pt], pathPoints[j]);
+        float currentDistance = abs(transformedPoint.x - prev_pt.x);
         current_length += currentDistance;
 
         // node point locations in scenario
@@ -229,15 +256,15 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             }
 
             scenarioPointDistances.push_back(currentDistance);
-            scenarioFull.push_back(pathPoints[j]);
+            scenarioFullEGO.push_back(transformedPoint);
         }
         else
         {
             isLengthReached = true;
         }
 
-        prev_pt = j;
-        j++;
+        prev_pt = transformedPoint;
+        pathPointIdx++;
         scenarioPtCounter++;
     }
     
@@ -253,35 +280,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         return true;
     }
 
-    // transform scenario pts to ego
-    geometry_msgs::TransformStamped transformStamped;
-    TrajectoryPoints scenarioFull_transformed;
-    scenarioFull_transformed.reserve(scenarioFull.size());
-
-    tf2::Quaternion q(
-        gps_pose.pose.orientation.x,
-        gps_pose.pose.orientation.y,
-        gps_pose.pose.orientation.z,
-        gps_pose.pose.orientation.w
-    );
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-    
-    for (Points2D pt: scenarioFull)
-    {
-        Points2D transformedPoint;
-
-        Pose2D egopose;
-        egopose.Pose2DCoordinates.x = gps_pose.pose.position.x;
-        egopose.Pose2DCoordinates.y = gps_pose.pose.position.y;
-        egopose.Pose2DTheta = yaw;
-
-        coordinateTransforms.transform2D(pt, egopose, transformedPoint);
-
-        scenarioFull_transformed.push_back(transformedPoint);
-    }
-
     // slice trajectory at nodePoints
     TrajectoryPoints segments[polyline_count];
     PolynomialCoeffs scenarioPolynomes[polyline_count];
@@ -293,13 +291,13 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         segments[segmentIdx].reserve(nodePtIdx - nodePtIdxStart + 1);
 
         // add first point without adding length
-        segments[segmentIdx].push_back(scenarioFull_transformed[nodePtIdxStart]);
+        segments[segmentIdx].push_back(scenarioFullEGO[nodePtIdxStart]);
 
         current_length = 0;
         for (int i = nodePtIdxStart + 1; i <= nodePtIdx; i++)
         {
             current_length += scenarioPointDistances[i];
-            segments[segmentIdx].push_back(scenarioFull_transformed[i]);
+            segments[segmentIdx].push_back(scenarioFullEGO[i]);
         }
         scenarioPolynomes[segmentIdx].length = current_length;
         nodePtIdxStart = nodePtIdx;
@@ -319,9 +317,9 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     // calculate kappa
     // scenario first derivative
     std::vector<float> derivative_1;
-    derivative_1.reserve(scenarioFull_transformed.size());
+    derivative_1.reserve(scenarioFullEGO.size());
     
-    TrajectoryPoints::iterator currentPt_it = scenarioFull_transformed.begin();
+    TrajectoryPoints::iterator currentPt_it = scenarioFullEGO.begin();
 
     // forward differencing first point
     derivative_1.push_back(
@@ -329,7 +327,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         ((currentPt_it + 1)->x - currentPt_it->x));
     
     currentPt_it++;
-    for (; currentPt_it != scenarioFull_transformed.end() - 1; currentPt_it++)
+    for (; currentPt_it != scenarioFullEGO.end() - 1; currentPt_it++)
     {
         // central differencing middle points
         derivative_1.push_back(
@@ -345,9 +343,9 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
     // scenario second derivative
     std::vector<float> derivative_2;
-    derivative_2.reserve(scenarioFull_transformed.size());
+    derivative_2.reserve(scenarioFullEGO.size());
     
-    TrajectoryPoints::iterator currentXPt_it = scenarioFull_transformed.begin();
+    TrajectoryPoints::iterator currentXPt_it = scenarioFullEGO.begin();
     std::vector<float>::iterator currentY_it = derivative_1.begin();
 
     // forward differencing first point
@@ -356,7 +354,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         ((currentXPt_it + 1)->x - currentXPt_it->x));
     
     currentXPt_it++;
-    for (; currentXPt_it != scenarioFull_transformed.end() - 1; currentXPt_it++)
+    for (; currentXPt_it != scenarioFullEGO.end() - 1; currentXPt_it++)
     {
         // central differencing middle points
         derivative_2.push_back(
@@ -393,14 +391,12 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         // visualize original and transformed paths
         visualization_msgs::Marker plannedPathMarker;
         visualization_msgs::Marker scenarioPathMarker;
-        visualization_msgs::Marker scenarioTransformedMarker;
         visualization_msgs::Marker scenarioSegmentMarker[polyline_count];
         visualization_msgs::Marker polyMarker[polyline_count];
 
         initMarker(plannedPathMarker, lanelet_frame, "planned_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
         initMarker(scenarioPathMarker, lanelet_frame, "scenario_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
-        initMarker(scenarioTransformedMarker, lanelet_frame, "scenario_transformed", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0, 1, 1));
-
+        
         for (uint8_t i = 0; i < polyline_count; i++)
         {
             initMarker(scenarioSegmentMarker[i], lanelet_frame, ("scenario_segment_"+std::to_string(i+1)), visualization_msgs::Marker::POINTS, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
@@ -412,11 +408,9 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             plannedPathMarker.points.push_back(pt);
         }
 
-        for (uint16_t i = 0; i < scenarioFull.size(); i++)
+        for (uint16_t i = 0; i < scenarioFullEGO.size(); i++)
         {
-            scenarioPathMarker.points.push_back(scenarioFull[i]);
-            
-            scenarioTransformedMarker.points.push_back(scenarioFull_transformed[i]);
+            scenarioPathMarker.points.push_back(scenarioFullEGO[i]);
         }
 
         for (uint8_t i = 0; i < polyline_count; i++)
@@ -436,7 +430,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         markerArray.markers.push_back(plannedPathMarker);
         markerArray.markers.push_back(scenarioPathMarker);
-        markerArray.markers.push_back(scenarioTransformedMarker);
 
         pub_road_lines.publish(markerArray);
     }

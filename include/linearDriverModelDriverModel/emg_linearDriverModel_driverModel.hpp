@@ -11,8 +11,8 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
+#define LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
 
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
@@ -44,4 +44,4 @@ private:
 };
 
 
-#endif  // DC_EMG_LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_DRIVERMODEL_HPP_INCLUDED

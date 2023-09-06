@@ -11,8 +11,8 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
+#define LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
 
 #include <ros/ros.h>
 #include <geometry_msgs/Point.h>
@@ -28,29 +28,11 @@ typedef std::vector<Points2D> TrajectoryPoints;
 
 typedef lane_keep_system::PolynomialCoeffs PolynomialCoeffs;
 
-// was CorridorInfoCoefficients
 struct ScenarioPolynomials
 {
    std::vector<PolynomialCoeffs> coeffs;
    std::vector<float>            kappaNominal;
 };
-
-
-// struct CorridorInfoCoefficients
-// {
-//    float c0{0.0f};
-//    float c1{0.0f};
-//    float c2{0.0f};
-//    float c3{0.0f};
-// };
-
-// struct CorridorInfo
-// {
-//    TrajectoryPoints     corridorPoints;
-//    std::vector<float>   corridorOrientation;
-//    std::vector<float>   corridorCurvature;
-//    uint16_t             corridorLength{0U};
-// };
 
 struct Pose2D
 {
@@ -73,23 +55,12 @@ struct SegmentParams
    float    L[3]{0.0f};
 };
 
-// struct PolynomialCoeffsTwoSegments
-// {
-//    PolynomialCoeffs segmentCoeffs[2];
-// };
-
 struct PolynomialCoeffsThreeSegments
 {
    PolynomialCoeffs  segmentCoeffs[3];
    float             sectionBorderStart[3];
    float             sectionBorderEnd[3];
 };
-
-// struct TrajectoryPolynomial
-// {
-//    PolynomialCoeffs polynomialCoeffs;
-//    TrajectoryPoints trajectory;
-// };
 
 struct LDMParamIn
 {
@@ -99,4 +70,4 @@ struct LDMParamIn
    float P_nodePointDistances[3]{6.0f, 24.0f, 80.0f};
 };
 
-#endif  // DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED

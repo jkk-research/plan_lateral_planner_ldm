@@ -11,8 +11,8 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
+#define LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
 
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 
@@ -37,4 +37,4 @@ public:
    uint8_t replanCount{0U};
 };
 
-#endif  // DC_EMG_LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED
