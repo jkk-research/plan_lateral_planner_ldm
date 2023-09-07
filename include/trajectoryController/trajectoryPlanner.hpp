@@ -17,11 +17,12 @@
 class TrajectoryPlanner
 {
 public:
-    TrajectoryPlanner(const ros::NodeHandle &nh);
+    TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::NodeHandle &nh_p_);
 
     bool runTrajectory();
 private:
     ros::NodeHandle nh;
+    ros::NodeHandle nh_p;
     ros::ServiceClient client;
     ros::Publisher pub_visualization;
     ros::Subscriber sub_gps;
@@ -30,6 +31,7 @@ private:
 
     LDMParamIn params;
     LinearDriverModel ldm;
+    bool visualize_trajectory;
 
     ScenarioPolynomials GetScenario();
     // ROS callback for gps topic

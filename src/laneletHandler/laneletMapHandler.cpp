@@ -29,13 +29,12 @@ bool LaneletHandler::init()
     nh_p.param<std::string>("lanelet2_path", lanelet2_path, "");
     nh_p.param<std::string>("lanelet_frame", lanelet_frame, "");
     nh_p.param<std::string>("ego_frame", ego_frame, "");
-    nh_p.param<bool>("visualize_path", visualize_path, false);
+    nh_p.param<bool>("visualize", visualize_path, false);
 
     // init tf listener
     tfListener = std::make_unique<tf2_ros::TransformListener>(tfBuffer);
     // init gps transform
-    ros::Duration(1,0).sleep();
-    lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", ros::Time(0));
+    lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", ros::Time(0), ros::Duration(3));
 
     // get lanelet file path
     std::string lanelet2_file_path;
@@ -97,7 +96,7 @@ bool LaneletHandler::init()
 
         visualization_msgs::Marker laneletCenterlineMarker;
 
-        initMarker(laneletCenterlineMarker, lanelet_frame, "lanelet_center_line", visualization_msgs::Marker::POINTS, getColorObj(0,0,1,1));
+        initMarker(laneletCenterlineMarker, lanelet_frame, "lanelet_center_line", visualization_msgs::Marker::POINTS, getColorObj(0,0,1,1), 0.5);
 
         for (int i = 0; i < pathPoints.size(); i++)
         {
@@ -135,16 +134,16 @@ std_msgs::ColorRGBA LaneletHandler::getColorObj(float r, float g, float b, float
     return c;
 }
 
-void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color)
+void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale=0.4)
 {
     m.header.frame_id = frame_id;
     m.header.stamp = ros::Time::now();
     m.lifetime = ros::Duration(0);
     m.ns = ns;
     m.type = type;
-    m.scale.x = 0.3;
-    m.scale.y = 0.3;
-    m.scale.z = 0.3;
+    m.scale.x = scale;
+    m.scale.y = scale;
+    m.scale.z = scale;
     m.color.r = color.r;
     m.color.g = color.g;
     m.color.b = color.b;
@@ -275,6 +274,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         {
             PolynomialCoeffs out_coeffs;
             res.coefficients.push_back(out_coeffs);
+            res.kappa.push_back(0);
         }
 
         return true;
@@ -390,12 +390,16 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         // visualize original and transformed paths
         visualization_msgs::Marker plannedPathMarker;
-        visualization_msgs::Marker scenarioPathMarker;
+        visualization_msgs::Marker scenarioPathCenterMarker;
+        visualization_msgs::Marker scenarioPathLeftMarker;
+        visualization_msgs::Marker scenarioPathRightMarker;
         visualization_msgs::Marker scenarioSegmentMarker[polyline_count];
         visualization_msgs::Marker polyMarker[polyline_count];
 
         initMarker(plannedPathMarker, lanelet_frame, "planned_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
-        initMarker(scenarioPathMarker, lanelet_frame, "scenario_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
+        initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
+        initMarker(scenarioPathLeftMarker, lanelet_frame, "scenario_path_left", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
+        initMarker(scenarioPathRightMarker, lanelet_frame, "scenario_path_right", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
         
         for (uint8_t i = 0; i < polyline_count; i++)
         {
@@ -410,7 +414,15 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         for (uint16_t i = 0; i < scenarioFullEGO.size(); i++)
         {
-            scenarioPathMarker.points.push_back(scenarioFullEGO[i]);
+            Points2D p;
+            p.x = scenarioFullEGO[i].x;
+            p.y = scenarioFullEGO[i].y;
+
+            scenarioPathCenterMarker.points.push_back(p);
+            p.y += 1.9;
+            scenarioPathLeftMarker.points.push_back(p);
+            p.y -= 3.8;
+            scenarioPathRightMarker.points.push_back(p);
         }
 
         for (uint8_t i = 0; i < polyline_count; i++)
@@ -429,7 +441,9 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         }
 
         markerArray.markers.push_back(plannedPathMarker);
-        markerArray.markers.push_back(scenarioPathMarker);
+        markerArray.markers.push_back(scenarioPathCenterMarker);
+        markerArray.markers.push_back(scenarioPathLeftMarker);
+        markerArray.markers.push_back(scenarioPathRightMarker);
 
         pub_road_lines.publish(markerArray);
     }

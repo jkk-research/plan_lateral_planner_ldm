@@ -1,15 +1,15 @@
 #include "trajectoryController/trajectoryPlanner.hpp"
 
-void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color)
+void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale=0.4)
 {
     m.header.frame_id = frame_id;
     m.header.stamp = ros::Time::now();
     m.lifetime = ros::Duration(0);
     m.ns = ns;
     m.type = type;
-    m.scale.x = 0.3;
-    m.scale.y = 0.3;
-    m.scale.z = 0.3;
+    m.scale.x = scale;
+    m.scale.y = scale;
+    m.scale.z = scale;
     m.color.r = color.r;
     m.color.g = color.g;
     m.color.b = color.b;
@@ -31,18 +31,29 @@ void TrajectoryPlanner::gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& 
     currentGPSMsg = *gps_msg;
 }
 
-TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_) : nh(nh_)
+TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::NodeHandle &nh_p_) : nh(nh_), nh_p(nh_p_)
 {
+    // set parameters
+    std::vector<float> driverParams(21);
+    nh.getParam("trajectory_planner/P", driverParams);
+    nh.getParam("trajectory_planner/replan_cycle", params.replanCycle);
+    nh_p.getParam("visualize", visualize_trajectory);
+
+    for (uint8_t i = 0; i < 21; i++)
+    {
+        params.P[i] = driverParams[i];
+    }
+    
     // subscribe to gps
-    sub_gps = nh.subscribe("/gps/duro/current_pose", 1, &TrajectoryPlanner::gpsCallback, this);
+    ROS_INFO("Waiting for GPS data on /gps/duro/current_pose");
     ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose");
+    sub_gps = nh.subscribe("/gps/duro/current_pose", 1, &TrajectoryPlanner::gpsCallback, this);
 
+    // connect to lanelet map service
+    ros::service::waitForService("/get_lanelet_scenario");
     client = nh.serviceClient<lane_keep_system::GetLaneletScenario>("/get_lanelet_scenario", true);
-    client.waitForExistence();
-
+    
     pub_visualization = nh.advertise<visualization_msgs::MarkerArray>("ldm_path", 1, true);
-
-    // TODO: init params
 }
 
 bool TrajectoryPlanner::runTrajectory()
@@ -51,6 +62,7 @@ bool TrajectoryPlanner::runTrajectory()
     
     Pose2D egoPose;
     geometry_msgs::PoseStamped gps_pose = currentGPSMsg;
+
     egoPose.Pose2DCoordinates.x = gps_pose.pose.position.x;
     egoPose.Pose2DCoordinates.y = gps_pose.pose.position.y;
     egoPose.Pose2DCoordinates.z = gps_pose.pose.position.z;
@@ -131,12 +143,13 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "trajectory_planner");
     ros::NodeHandle nh;
+    ros::NodeHandle nh_p("~");
 
-    TrajectoryPlanner trajectoryPlanner(nh);
+    TrajectoryPlanner trajectoryPlanner(nh, nh_p);
     ros::spinOnce();
     ros::Duration(0.5).sleep();
 
-    ros::Rate rate(20);
+    ros::Rate rate(50);
 
     while (ros::ok)
     {

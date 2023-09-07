@@ -54,7 +54,7 @@ private:
     // Get color as ROS object
     std_msgs::ColorRGBA getColorObj(float r, float g, float b, float a);
     // Initialize markers
-    void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color);
+    void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale);
 
     // ROS service callback for calculating polynomial coefficients for the path ahead of the car
     bool LaneletScenarioServiceCallback(lane_keep_system::GetLaneletScenario::Request &req, lane_keep_system::GetLaneletScenario::Response &res);

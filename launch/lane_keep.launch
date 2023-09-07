@@ -1,8 +1,20 @@
 <launch>
+  <arg name="bag_path" default="/home/david/bags/motorway_2023-08-29/mw_50.bag" />
+  <arg name="visualize" default="true" />
+
   <node pkg="lane_keep_system" type="lanelet_map_handler" name="lanelet_map_handler" output="screen">
     <param name="lanelet2_path" value="$(find lane_keep_system)/laneletMaps/mw.osm" />
     <param name="lanelet_frame" value="map_zala_0" />
     <param name="ego_frame" value="gps" />
-    <param name="visualize_path" value="true" />
+    <param name="visualize" value="$(arg visualize)" />
   </node>
+
+  <node pkg="lane_keep_system" type="trajectory_planner" name="trajectory_planner" output="screen">
+    <rosparam file="$(find lane_keep_system)/config/driverParams.yaml" />
+    <param name="visualize" value="$(arg visualize)" />
+  </node>
+
+  <node pkg="rosbag" type="play" name="bag_player" output="screen" args="--clock $(arg bag_path)"/>
+  
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(find lane_keep_system)/config/trajectory.rviz"  if="$(eval arg('visualize') == true)"/>
 </launch>
