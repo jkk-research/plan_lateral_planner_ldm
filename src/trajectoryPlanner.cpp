@@ -65,7 +65,6 @@ bool TrajectoryPlanner::runTrajectory()
 
     egoPose.Pose2DCoordinates.x = gps_pose.pose.position.x;
     egoPose.Pose2DCoordinates.y = gps_pose.pose.position.y;
-    egoPose.Pose2DCoordinates.z = gps_pose.pose.position.z;
 
     tf2::Quaternion q(
         gps_pose.pose.orientation.x,
@@ -97,7 +96,7 @@ bool TrajectoryPlanner::runTrajectory()
         colors[i+1] = 1;
         for (int j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
         {
-            Points2D p;
+            geometry_msgs::Point p;
             p.x = j;
             p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * j * j + pcts.segmentCoeffs[i].c3 * j * j * j;
             mark.points.push_back(p);

@@ -47,8 +47,12 @@ private:
 
     // Load parameters, load lanelet file, plan path
     bool init();
+    // Convert Points2D to geometry_msgs::Point
+    geometry_msgs::Point convertPoint_CPP2ROS(Points2D pt);
+    // Convert geometry_msgs::Point to Points2D
+    Points2D convertPoint_ROS2CPP(geometry_msgs::Point geoPt);
     // Calculate distance between two given points
-    double distanceBetweenPoints(geometry_msgs::Point a, geometry_msgs::Point b);
+    double distanceBetweenPoints(Points2D a, Points2D b);
     // Get point on polynom at the given x value
     Points2D getPointOnPoly(float x, PolynomialCoeffs coeffs);
     // Get color as ROS object

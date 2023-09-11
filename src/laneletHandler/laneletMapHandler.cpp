@@ -21,6 +21,61 @@ LaneletHandler::LaneletHandler(const ros::NodeHandle &nh, const ros::NodeHandle 
     }
 }
 
+geometry_msgs::Point LaneletHandler::convertPoint_CPP2ROS(Points2D pt)
+{
+    geometry_msgs::Point geoPt;
+    geoPt.x = pt.x;
+    geoPt.y = pt.y;
+    return geoPt;
+}
+
+Points2D LaneletHandler::convertPoint_ROS2CPP(geometry_msgs::Point geoPt)
+{
+    Points2D pt;
+    pt.x = geoPt.x;
+    pt.y = geoPt.y;
+    return pt;
+}
+
+double LaneletHandler::distanceBetweenPoints(Points2D a, Points2D b)
+{
+    return sqrt(pow(b.x-a.x, 2)+pow(b.y-a.y, 2));
+}
+
+std_msgs::ColorRGBA LaneletHandler::getColorObj(float r, float g, float b, float a)
+{
+	std_msgs::ColorRGBA c;
+    c.r = r;
+	c.g = g;
+	c.b = b;
+	c.a = a;
+    return c;
+}
+
+void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale=0.4)
+{
+    m.header.frame_id = frame_id;
+    m.header.stamp = ros::Time::now();
+    m.lifetime = ros::Duration(0);
+    m.ns = ns;
+    m.type = type;
+    m.scale.x = scale;
+    m.scale.y = scale;
+    m.scale.z = scale;
+    m.color.r = color.r;
+    m.color.g = color.g;
+    m.color.b = color.b;
+    m.color.a = color.a;
+}
+
+Points2D LaneletHandler::getPointOnPoly(float x, PolynomialCoeffs coeffs)
+{
+    Points2D pt;
+    pt.x = x;
+    pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
+    return pt;
+}
+
 bool LaneletHandler::init()
 {
     std::string lanelet2_path;
@@ -100,7 +155,7 @@ bool LaneletHandler::init()
 
         for (int i = 0; i < pathPoints.size(); i++)
         {
-            laneletCenterlineMarker.points.push_back(pathPoints[i]);
+            laneletCenterlineMarker.points.push_back(convertPoint_CPP2ROS(pathPoints[i]));
         }
 
         markerArray.markers.push_back(laneletCenterlineMarker);
@@ -119,45 +174,6 @@ bool LaneletHandler::init()
     return true;
 }
 
-double LaneletHandler::distanceBetweenPoints(geometry_msgs::Point a, geometry_msgs::Point b)
-{
-    return sqrt(pow(b.x-a.x, 2)+pow(b.y-a.y, 2));
-}
-
-std_msgs::ColorRGBA LaneletHandler::getColorObj(float r, float g, float b, float a)
-{
-	std_msgs::ColorRGBA c;
-    c.r = r;
-	c.g = g;
-	c.b = b;
-	c.a = a;
-    return c;
-}
-
-void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale=0.4)
-{
-    m.header.frame_id = frame_id;
-    m.header.stamp = ros::Time::now();
-    m.lifetime = ros::Duration(0);
-    m.ns = ns;
-    m.type = type;
-    m.scale.x = scale;
-    m.scale.y = scale;
-    m.scale.z = scale;
-    m.color.r = color.r;
-    m.color.g = color.g;
-    m.color.b = color.b;
-    m.color.a = color.a;
-}
-
-Points2D LaneletHandler::getPointOnPoly(float x, PolynomialCoeffs coeffs)
-{
-    Points2D pt;
-    pt.x = x;
-    pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
-    return pt;
-}
-
 bool LaneletHandler::LaneletScenarioServiceCallback(
     lane_keep_system::GetLaneletScenario::Request &req, 
     lane_keep_system::GetLaneletScenario::Response &res)
@@ -168,14 +184,16 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
     // transform gps coordinates from global frame to lanelet frame
     tf2::doTransform<geometry_msgs::PoseStamped>(req.gps, gps_pose, lanelet_2_map_transform);
-    
+
+    Points2D gps_position = convertPoint_ROS2CPP(gps_pose.pose.position);
+
     // find nearest point to gps postition on path
     int startPointIdx = lastStartPointIdx;
     bool nnTrheshold_reached = false;
-    double min_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[startPointIdx]);
+    double min_dist = distanceBetweenPoints(gps_position, pathPoints[startPointIdx]);
     for (int i = startPointIdx+1; i < pathPoints.size(); i++)
     {
-        double current_dist = distanceBetweenPoints(gps_pose.pose.position, pathPoints[i]);
+        double current_dist = distanceBetweenPoints(gps_position, pathPoints[i]);
 
         if (current_dist < min_dist)
         {
@@ -409,7 +427,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         
         for (Points2D pt: pathPoints)
         {
-            plannedPathMarker.points.push_back(pt);
+            plannedPathMarker.points.push_back(convertPoint_CPP2ROS(pt));
         }
 
         for (uint16_t i = 0; i < scenarioFullEGO.size(); i++)
@@ -418,22 +436,21 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             p.x = scenarioFullEGO[i].x;
             p.y = scenarioFullEGO[i].y;
 
-            scenarioPathCenterMarker.points.push_back(p);
+            scenarioPathCenterMarker.points.push_back(convertPoint_CPP2ROS(p));
             p.y += 1.9;
-            scenarioPathLeftMarker.points.push_back(p);
+            scenarioPathLeftMarker.points.push_back(convertPoint_CPP2ROS(p));
             p.y -= 3.8;
-            scenarioPathRightMarker.points.push_back(p);
+            scenarioPathRightMarker.points.push_back(convertPoint_CPP2ROS(p));
         }
 
         for (uint8_t i = 0; i < polyline_count; i++)
         {
             for (Points2D pt: segments[i])
             {
-                scenarioSegmentMarker[i].points.push_back(pt);
+                scenarioSegmentMarker[i].points.push_back(convertPoint_CPP2ROS(pt));
                 
-                geometry_msgs::Point p = getPointOnPoly(pt.x, scenarioPolynomes[i]);
-                p.z = 0.5;
-                polyMarker[i].points.push_back(p);
+                Points2D p = getPointOnPoly(pt.x, scenarioPolynomes[i]);
+                polyMarker[i].points.push_back(convertPoint_CPP2ROS(p));
             }
 
             markerArray.markers.push_back(scenarioSegmentMarker[i]);

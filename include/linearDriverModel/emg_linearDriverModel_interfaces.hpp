@@ -14,15 +14,17 @@
 #ifndef LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
 #define LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
 
-#include <ros/ros.h>
-#include <geometry_msgs/Point.h>
 #include "lane_keep_system/PolynomialCoeffs.h"
 
 #include <string>
 #include <vector>
 
 
-typedef geometry_msgs::Point Points2D;
+struct Points2D
+{
+   float x;
+   float y;
+};
 
 typedef std::vector<Points2D> TrajectoryPoints;
 
