@@ -78,35 +78,64 @@ bool TrajectoryPlanner::runTrajectory()
 
     egoPose.Pose2DTheta = yaw;
 
-    PolynomialCoeffsThreeSegments pcts = ldm.runCoeffsLite(
+    TrajectoryOutput to = ldm.runCoeffsLite(
         sp,
         egoPose,
         params
     );
+    PolynomialCoeffsThreeSegments pcts = to.pcts;
 
-    markerArray.markers.clear();
-    int colors[4]{1,0,0,0};
-    for (int i = 0; i < 3; i++)
+    //ROS_INFO("KappaNominal: %f ; %f ; %f", sp.kappaNominal[0], sp.kappaNominal[1], sp.kappaNominal[2]);
+
+    if (visualize_trajectory)
     {
-        ROS_INFO("%f - %f - %f - %f", pcts.segmentCoeffs[i].c0, pcts.segmentCoeffs[i].c1, pcts.segmentCoeffs[i].c2, pcts.segmentCoeffs[i].c3);
+        markerArray.markers.clear();
+        int colors[4]{1,0,0,0};
+        for (int i = 0; i < 3; i++)
+        {
+            // ROS_INFO("%i. coeff: %f - %f - %f - %f", i+1, pcts.segmentCoeffs[i].c0, pcts.segmentCoeffs[i].c1, pcts.segmentCoeffs[i].c2, pcts.segmentCoeffs[i].c3);
 
+            visualization_msgs::Marker mark;
+            initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
+            colors[i] = 0;
+            colors[i+1] = 1;
+            for (int j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
+            {
+                geometry_msgs::Point p;
+                p.x = j;
+                p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * j * j + pcts.segmentCoeffs[i].c3 * j * j * j;
+                mark.points.push_back(p);
+            }
+            markerArray.markers.push_back(mark);
+        }
+        ROS_INFO("-----");
         visualization_msgs::Marker mark;
-        initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
-        colors[i] = 0;
-        colors[i+1] = 1;
-        for (int j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
+        initMarker(mark, "map_zala_0", "nodePts", visualization_msgs::Marker::POINTS, getColorObj(0, 1, 1, 1), 1);
+        for (int i = 0; i < 4; i++)
         {
             geometry_msgs::Point p;
-            p.x = j;
-            p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * j * j + pcts.segmentCoeffs[i].c3 * j * j * j;
+            p.x = to.np.nodePointsCoordinates[i].x;
+            p.y = to.np.nodePointsCoordinates[i].y;
+            p.z = 1;
             mark.points.push_back(p);
+            // ROS_INFO("%i. nodePt: %f - %f", i, p.x, p.y);
         }
         markerArray.markers.push_back(mark);
-    }
-    
-    ROS_INFO("=====");
+        
+        visualization_msgs::Marker ego_mark;
+        initMarker(ego_mark, "map_zala_0", "ego", visualization_msgs::Marker::POINTS, getColorObj(1, 0, 1, 1), 1);
+        ego_mark.scale.x = 4;
+        ego_mark.scale.y = 1.6;
+        geometry_msgs::Point ego_point;
+        ego_point.x = 0;
+        ego_point.y = 0;
+        ego_mark.points.push_back(ego_point);
+        markerArray.markers.push_back(ego_mark);
+        
+        ROS_INFO("=====");
 
-    pub_visualization.publish(markerArray);
+        pub_visualization.publish(markerArray);
+    }
 
     return true;
 }

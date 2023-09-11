@@ -372,12 +372,15 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         ((currentXPt_it + 1)->x - currentXPt_it->x));
     
     currentXPt_it++;
+    currentY_it++;
     for (; currentXPt_it != scenarioFullEGO.end() - 1; currentXPt_it++)
     {
         // central differencing middle points
         derivative_2.push_back(
             (*(currentY_it + 1) - *(currentY_it - 1)) / 
             ((currentXPt_it + 1)->x - (currentXPt_it - 1)->x));
+        
+        currentY_it++;
     }
     
     // backward differencing last point
@@ -386,7 +389,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         (currentXPt_it->x - (currentXPt_it - 1)->x));
     
     // kappa averages
-    //TODO: TEST
     nodePtIdxStart = 0;
     for (int nodePtIdx: nodePtIndexes)
     {

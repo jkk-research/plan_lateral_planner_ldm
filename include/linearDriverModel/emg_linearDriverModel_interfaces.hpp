@@ -72,4 +72,11 @@ struct LDMParamIn
    float P_nodePointDistances[3]{6.0f, 24.0f, 80.0f};
 };
 
+struct TrajectoryOutput
+{
+   PolynomialCoeffsThreeSegments pcts;
+   NodePoints np;
+};
+
+
 #endif  // LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED

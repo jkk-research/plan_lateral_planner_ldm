@@ -14,7 +14,7 @@
 #include "linearDriverModel/emg_linearDriverModel.hpp"
 
 
-PolynomialCoeffsThreeSegments LinearDriverModel::runCoeffsLite(
+TrajectoryOutput LinearDriverModel::runCoeffsLite(
    const ScenarioPolynomials&   corridorCoefficients,
    const Pose2D&                egoPoseGlobal,
    const LDMParamIn&            parameters)
@@ -68,6 +68,9 @@ PolynomialCoeffsThreeSegments LinearDriverModel::runCoeffsLite(
    {
       // TODO: invalid corridor
    }
-   return trajectoryCoeffsThreeSegments;
+   TrajectoryOutput to;
+   to.pcts = trajectoryCoeffsThreeSegments;
+   to.np = nodePointsEgoFrame;
+   return to;
 
 }
