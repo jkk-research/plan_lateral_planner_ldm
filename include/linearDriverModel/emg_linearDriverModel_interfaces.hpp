@@ -28,7 +28,15 @@ struct Points2D
 
 typedef std::vector<Points2D> TrajectoryPoints;
 
-typedef lane_keep_system::PolynomialCoeffs PolynomialCoeffs;
+typedef std::vector<TrajectoryPoints> Segments;
+
+struct PolynomialCoeffs
+{
+   float c0;
+   float c1;
+   float c2;
+   float c3;
+};
 
 struct ScenarioPolynomials
 {

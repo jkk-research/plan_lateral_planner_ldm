@@ -85,16 +85,12 @@ bool TrajectoryPlanner::runTrajectory()
     );
     PolynomialCoeffsThreeSegments pcts = to.pcts;
 
-    //ROS_INFO("KappaNominal: %f ; %f ; %f", sp.kappaNominal[0], sp.kappaNominal[1], sp.kappaNominal[2]);
-
     if (visualize_trajectory)
     {
         markerArray.markers.clear();
         int colors[4]{1,0,0,0};
         for (int i = 0; i < 3; i++)
         {
-            // ROS_INFO("%i. coeff: %f - %f - %f - %f", i+1, pcts.segmentCoeffs[i].c0, pcts.segmentCoeffs[i].c1, pcts.segmentCoeffs[i].c2, pcts.segmentCoeffs[i].c3);
-
             visualization_msgs::Marker mark;
             initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
             colors[i] = 0;
@@ -108,7 +104,7 @@ bool TrajectoryPlanner::runTrajectory()
             }
             markerArray.markers.push_back(mark);
         }
-        ROS_INFO("-----");
+        
         visualization_msgs::Marker mark;
         initMarker(mark, "map_zala_0", "nodePts", visualization_msgs::Marker::POINTS, getColorObj(0, 1, 1, 1), 1);
         for (int i = 0; i < 4; i++)
@@ -118,7 +114,6 @@ bool TrajectoryPlanner::runTrajectory()
             p.y = to.np.nodePointsCoordinates[i].y;
             p.z = 1;
             mark.points.push_back(p);
-            // ROS_INFO("%i. nodePt: %f - %f", i, p.x, p.y);
         }
         markerArray.markers.push_back(mark);
         
@@ -131,8 +126,6 @@ bool TrajectoryPlanner::runTrajectory()
         ego_point.y = 0;
         ego_mark.points.push_back(ego_point);
         markerArray.markers.push_back(ego_mark);
-        
-        ROS_INFO("=====");
 
         pub_visualization.publish(markerArray);
     }
@@ -155,9 +148,14 @@ ScenarioPolynomials TrajectoryPlanner::GetScenario()
     sp.coeffs.reserve(srv.response.coefficients.size());
     sp.kappaNominal.reserve(srv.response.kappa.size());
 
-    for (auto c: srv.response.coefficients)
+    for (auto coeffs: srv.response.coefficients)
     {
-        sp.coeffs.push_back(c);
+        PolynomialCoeffs polyCoeffs;
+        polyCoeffs.c0 = coeffs.c0;
+        polyCoeffs.c1 = coeffs.c1;
+        polyCoeffs.c2 = coeffs.c2;
+        polyCoeffs.c3 = coeffs.c3;
+        sp.coeffs.push_back(polyCoeffs);
     }
     for (auto k: srv.response.kappa)
     {

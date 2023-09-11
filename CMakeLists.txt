@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_message_files(DIRECTORY msg
   FILES
-    PolynomialCoeffs.msg)
+    Polynomial.msg)
 
 add_service_files(DIRECTORY srv
   FILES

@@ -21,7 +21,7 @@ LaneletHandler::LaneletHandler(const ros::NodeHandle &nh, const ros::NodeHandle 
     }
 }
 
-geometry_msgs::Point LaneletHandler::convertPoint_CPP2ROS(Points2D pt)
+geometry_msgs::Point LaneletHandler::convertPoint_CPP2ROS(const Points2D pt)
 {
     geometry_msgs::Point geoPt;
     geoPt.x = pt.x;
@@ -29,7 +29,7 @@ geometry_msgs::Point LaneletHandler::convertPoint_CPP2ROS(Points2D pt)
     return geoPt;
 }
 
-Points2D LaneletHandler::convertPoint_ROS2CPP(geometry_msgs::Point geoPt)
+Points2D LaneletHandler::convertPoint_ROS2CPP(const geometry_msgs::Point geoPt)
 {
     Points2D pt;
     pt.x = geoPt.x;
@@ -37,12 +37,16 @@ Points2D LaneletHandler::convertPoint_ROS2CPP(geometry_msgs::Point geoPt)
     return pt;
 }
 
-double LaneletHandler::distanceBetweenPoints(Points2D a, Points2D b)
+float LaneletHandler::distanceBetweenPoints(const Points2D a, const Points2D b)
 {
     return sqrt(pow(b.x-a.x, 2)+pow(b.y-a.y, 2));
 }
 
-std_msgs::ColorRGBA LaneletHandler::getColorObj(float r, float g, float b, float a)
+std_msgs::ColorRGBA LaneletHandler::getColorObj(
+    const float r, 
+    const float g, 
+    const float b, 
+    const float a)
 {
 	std_msgs::ColorRGBA c;
     c.r = r;
@@ -52,7 +56,13 @@ std_msgs::ColorRGBA LaneletHandler::getColorObj(float r, float g, float b, float
     return c;
 }
 
-void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale=0.4)
+void LaneletHandler::initMarker(
+    visualization_msgs::Marker &m, 
+    const std::string          frame_id, 
+    const std::string          ns, 
+    const int32_t              type, 
+    const std_msgs::ColorRGBA  color, 
+    const float                scale=0.4)
 {
     m.header.frame_id = frame_id;
     m.header.stamp = ros::Time::now();
@@ -68,13 +78,205 @@ void LaneletHandler::initMarker(visualization_msgs::Marker &m, std::string frame
     m.color.a = color.a;
 }
 
-Points2D LaneletHandler::getPointOnPoly(float x, PolynomialCoeffs coeffs)
+Points2D LaneletHandler::getPointOnPoly(const float x, const lane_keep_system::Polynomial& coeffs)
 {
     Points2D pt;
     pt.x = x;
     pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
     return pt;
 }
+
+Pose2D LaneletHandler::getEgoPose(const geometry_msgs::PoseStamped& gps_pose)
+{
+    tf2::Quaternion q(
+        gps_pose.pose.orientation.x,
+        gps_pose.pose.orientation.y,
+        gps_pose.pose.orientation.z,
+        gps_pose.pose.orientation.w
+    );
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    Pose2D egopose;
+    egopose.Pose2DCoordinates.x = gps_pose.pose.position.x;
+    egopose.Pose2DCoordinates.y = gps_pose.pose.position.y;
+    egopose.Pose2DTheta = yaw;
+
+    return egopose;
+}
+
+int LaneletHandler::getGPSNNPointIdx(const Points2D& gps_pos)
+{
+    int startPointIdx = lastStartPointIdx;
+    bool nnTrheshold_reached = false;
+    double min_dist = distanceBetweenPoints(gps_pos, pathPoints[startPointIdx]);
+    for (int i = startPointIdx+1; i < pathPoints.size(); i++)
+    {
+        double current_dist = distanceBetweenPoints(gps_pos, pathPoints[i]);
+
+        if (current_dist < min_dist)
+        {
+            min_dist = current_dist;
+            startPointIdx = i;
+        }
+
+        if (current_dist < nearestNeighborThreshold)
+            nnTrheshold_reached = true;
+        else if (nnTrheshold_reached)
+            break;
+    }
+    lastStartPointIdx = startPointIdx;
+    return startPointIdx;
+}
+
+bool LaneletHandler::createScenario(
+    const geometry_msgs::PoseStamped& gpsPose, 
+    const std::vector<float>&         nodePtDistances,
+    TrajectoryPoints&                 scenarioFullEGO,
+    std::vector<int>&                 nodePtIndexes)
+{
+    // transform gps coordinates from global frame to lanelet frame
+    geometry_msgs::PoseStamped gpsPpose_laneletFrame;
+    tf2::doTransform<geometry_msgs::PoseStamped>(gpsPose, gpsPpose_laneletFrame, lanelet_2_map_transform);
+    Points2D gps_position = convertPoint_ROS2CPP(gpsPpose_laneletFrame.pose.position);
+
+    // find nearest point to gps postition on path
+    int gpsNNPointIdx = getGPSNNPointIdx(gps_position);
+
+    double current_length = 0;
+    int    pathPointIdx = gpsNNPointIdx + 1;
+    int    nodePtIdx = 0;
+    int    scenarioPtCounter = 1;
+    bool   isLengthReached = false;
+
+    Points2D prev_pt;
+    Points2D transformedPoint;
+    Pose2D   egoPose = getEgoPose(gpsPpose_laneletFrame);
+
+    coordinateTransforms.transform2D(pathPoints[gpsNNPointIdx], egoPose, prev_pt);
+    scenarioFullEGO.push_back(prev_pt);
+
+    while (pathPointIdx < pathPoints.size() && !isLengthReached)
+    {
+        coordinateTransforms.transform2D(pathPoints[pathPointIdx], egoPose, transformedPoint);
+
+        if (prev_pt.x == transformedPoint.x)
+        {
+            // consecutive point duplicate on map
+            pathPointIdx++;
+            continue;
+        }
+        current_length += abs(transformedPoint.x - prev_pt.x);
+
+        // node point locations in scenario
+        if (nodePtIdx < nodePtDistances.size())
+        {
+            if (current_length > nodePtDistances[nodePtIdx])
+            {
+                // first point BEFORE the length criteria
+                nodePtIndexes.push_back(scenarioPtCounter - 1);
+                nodePtIdx++;
+            }
+            scenarioFullEGO.push_back(transformedPoint);
+        }
+        else
+        {
+            isLengthReached = true;
+        }
+
+        prev_pt = transformedPoint;
+        pathPointIdx++;
+        scenarioPtCounter++;
+    }
+
+    // not enough points to plan (path ended)
+    if (current_length < nodePtDistances.back())
+    {
+        return false;
+    }
+    return true;
+}
+
+Segments LaneletHandler::sliceScenario(
+    const TrajectoryPoints& scenarioFullEGO, 
+    const std::vector<int>& nodePtIndexes)
+{
+    Segments segments;
+    segments.reserve(polyline_count);
+
+    int prevNodePtIdx = 0;
+    int segmentIdx = 0;
+    for (int nodePtIdx: nodePtIndexes)
+    {
+        TrajectoryPoints tp;
+        tp.reserve(nodePtIdx - prevNodePtIdx + 1);
+
+        for (int i = prevNodePtIdx; i <= nodePtIdx; i++)
+        {
+            tp.push_back(scenarioFullEGO[i]);
+        }
+        prevNodePtIdx = nodePtIdx;
+        segmentIdx++;
+
+        segments.push_back(tp);
+    }
+
+    return segments;
+}
+
+std::vector<lane_keep_system::Polynomial> LaneletHandler::fitPolynomials(const Segments& segments)
+{
+    std::vector<lane_keep_system::Polynomial> scenarioPolynomials;
+    for (uint8_t i = 0; i < polyline_count; i++)
+    {
+        PolynomialCoeffs pc = polynomialSubfunctions.fitThirdOrderPolynomial(segments[i]);
+        lane_keep_system::Polynomial poly;
+        poly.c0 = pc.c0;
+        poly.c1 = pc.c1;
+        poly.c2 = pc.c2;
+        poly.c3 = pc.c3;
+        scenarioPolynomials.push_back(poly);
+    }
+    return scenarioPolynomials;
+}
+
+TrajectoryPoints LaneletHandler::numericalDerivative(const TrajectoryPoints& points)
+{
+    TrajectoryPoints derivative;
+    derivative.reserve(points.size());
+    
+    TrajectoryPoints::const_iterator currentPt_it = points.begin();
+
+    // forward differencing first point
+    Points2D currentPoint;
+    currentPoint.x = currentPt_it->x;
+    currentPoint.y = (
+        ((currentPt_it + 1)->y - currentPt_it->y) /
+        ((currentPt_it + 1)->x - currentPt_it->x));
+    derivative.push_back(currentPoint);
+    
+    currentPt_it++;
+    for (; currentPt_it != points.end() - 1; currentPt_it++)
+    {
+        // central differencing middle points
+        currentPoint.x = currentPt_it->x;
+        currentPoint.y = (
+            ((currentPt_it + 1)->y - (currentPt_it - 1)->y) /
+            ((currentPt_it + 1)->x - (currentPt_it - 1)->x));
+        derivative.push_back(currentPoint);
+    }
+    
+    // backward differencing last point
+    currentPoint.x = currentPt_it->x;
+    currentPoint.y = (
+        (currentPt_it->y - (currentPt_it - 1)->y) /
+        (currentPt_it->x - (currentPt_it - 1)->x));
+    derivative.push_back(currentPoint);
+
+    return derivative;
+}
+
 
 bool LaneletHandler::init()
 {
@@ -170,7 +372,7 @@ bool LaneletHandler::init()
     // init lanelet scenario service
     lanelet_service_ = nh.advertiseService("/get_lanelet_scenario", &LaneletHandler::LaneletScenarioServiceCallback, this);
     
-    ROS_INFO("ok");
+    ROS_INFO("LaneletHandler initialized.");
     return true;
 }
 
@@ -178,229 +380,49 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     lane_keep_system::GetLaneletScenario::Request &req, 
     lane_keep_system::GetLaneletScenario::Response &res)
 {
-    int polyline_count = req.nodePointDistances.size();
-
-    geometry_msgs::PoseStamped gps_pose;
-
-    // transform gps coordinates from global frame to lanelet frame
-    tf2::doTransform<geometry_msgs::PoseStamped>(req.gps, gps_pose, lanelet_2_map_transform);
-
-    Points2D gps_position = convertPoint_ROS2CPP(gps_pose.pose.position);
-
-    // find nearest point to gps postition on path
-    int startPointIdx = lastStartPointIdx;
-    bool nnTrheshold_reached = false;
-    double min_dist = distanceBetweenPoints(gps_position, pathPoints[startPointIdx]);
-    for (int i = startPointIdx+1; i < pathPoints.size(); i++)
-    {
-        double current_dist = distanceBetweenPoints(gps_position, pathPoints[i]);
-
-        if (current_dist < min_dist)
-        {
-            min_dist = current_dist;
-            startPointIdx = i;
-        }
-
-        if (current_dist < nearestNeighborThreshold)
-            nnTrheshold_reached = true;
-        else if (nnTrheshold_reached)
-            break;
-    }
-    lastStartPointIdx = startPointIdx;
+    polyline_count = req.nodePointDistances.size();
     
-
-    // transform scenario pts to ego
-    geometry_msgs::TransformStamped transformStamped;
-
-    tf2::Quaternion q(
-        gps_pose.pose.orientation.x,
-        gps_pose.pose.orientation.y,
-        gps_pose.pose.orientation.z,
-        gps_pose.pose.orientation.w
-    );
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-
-
-    // get centerline pts until scenario_length is reached
+    // get scenario
     TrajectoryPoints scenarioFullEGO;
-
-    double current_length = 0;
-    int pathPointIdx = startPointIdx + 1;
-    std::vector<float> scenarioPointDistances; // distances compared to previous point
-
-    std::vector<int> nodePtIndexes; // node point locations in scenario
-    int nodePtIndex = 0;
+    std::vector<int> nodePtIndexes;
+    bool validScenario = createScenario(req.gps, req.nodePointDistances, scenarioFullEGO, nodePtIndexes);
     
-    scenarioPointDistances.push_back(0);
-    int scenarioPtCounter = 1;
-    bool isLengthReached = false;
-
-    Points2D prev_pt;
-
-    Points2D transformedPoint;
-    Pose2D egopose;
-    egopose.Pose2DCoordinates.x = gps_pose.pose.position.x;
-    egopose.Pose2DCoordinates.y = gps_pose.pose.position.y;
-    egopose.Pose2DTheta = yaw;
-
-    coordinateTransforms.transform2D(pathPoints[startPointIdx], egopose, prev_pt);
-    scenarioFullEGO.push_back(prev_pt);
-
-    while (pathPointIdx < pathPoints.size() && !isLengthReached)
+    if (!validScenario)
     {
-        coordinateTransforms.transform2D(pathPoints[pathPointIdx], egopose, transformedPoint); // transform point to ego
-
-        if (prev_pt.x == transformedPoint.x)
-        {
-            // consecutive point duplicate on map
-            pathPointIdx++;
-            continue;
-        }
-        
-        float currentDistance = abs(transformedPoint.x - prev_pt.x);
-        current_length += currentDistance;
-
-        // node point locations in scenario
-        if (nodePtIndex < req.nodePointDistances.size())
-        {
-            if (current_length > req.nodePointDistances[nodePtIndex])
-            {
-                // first point BEFORE the length criteria
-                nodePtIndexes.push_back(scenarioPtCounter - 1);
-                nodePtIndex++;
-            }
-
-            scenarioPointDistances.push_back(currentDistance);
-            scenarioFullEGO.push_back(transformedPoint);
-        }
-        else
-        {
-            isLengthReached = true;
-        }
-
-        prev_pt = transformedPoint;
-        pathPointIdx++;
-        scenarioPtCounter++;
-    }
-    
-    // not enough points to plan (path ended)
-    if (current_length < req.nodePointDistances.back())
-    {
+        // invalid scenario, return all 0
         for (uint8_t i = 0; i < polyline_count; i++)
         {
-            PolynomialCoeffs out_coeffs;
+            lane_keep_system::Polynomial out_coeffs;
             res.coefficients.push_back(out_coeffs);
             res.kappa.push_back(0);
         }
-
         return true;
     }
-
-    // slice trajectory at nodePoints
-    TrajectoryPoints segments[polyline_count];
-    PolynomialCoeffs scenarioPolynomes[polyline_count];
-
-    int nodePtIdxStart = 0;
-    int segmentIdx = 0;
-    for (int nodePtIdx: nodePtIndexes)
-    {
-        segments[segmentIdx].reserve(nodePtIdx - nodePtIdxStart + 1);
-
-        // add first point without adding length
-        segments[segmentIdx].push_back(scenarioFullEGO[nodePtIdxStart]);
-
-        current_length = 0;
-        for (int i = nodePtIdxStart + 1; i <= nodePtIdx; i++)
-        {
-            current_length += scenarioPointDistances[i];
-            segments[segmentIdx].push_back(scenarioFullEGO[i]);
-        }
-        scenarioPolynomes[segmentIdx].length = current_length;
-        nodePtIdxStart = nodePtIdx;
-        segmentIdx++;
-    }
+    
+    // slice trajectory at nodepoints
+    Segments segments = sliceScenario(scenarioFullEGO, nodePtIndexes);
 
     // fit polynomes
-    for (uint8_t i = 0; i < polyline_count; i++)
-    {
-        float polyLength = scenarioPolynomes[i].length;
-        scenarioPolynomes[i] = polynomialSubfunctions.fitThirdOrderPolynomial(segments[i]);
-        scenarioPolynomes[i].length = polyLength;
-        
-        res.coefficients.push_back(scenarioPolynomes[i]);
-    }
+    std::vector<lane_keep_system::Polynomial> scenarioPolynomials = fitPolynomials(segments);
+    res.coefficients = scenarioPolynomials;
 
-    // calculate kappa
-    // scenario first derivative
-    std::vector<float> derivative_1;
-    derivative_1.reserve(scenarioFullEGO.size());
+    // calculate 2nd degree numerical derivatives for kappa
+    TrajectoryPoints derivative_1 = numericalDerivative(scenarioFullEGO);
+    TrajectoryPoints derivative_2 = numericalDerivative(derivative_1);
     
-    TrajectoryPoints::iterator currentPt_it = scenarioFullEGO.begin();
-
-    // forward differencing first point
-    derivative_1.push_back(
-        ((currentPt_it + 1)->y - currentPt_it->y) / 
-        ((currentPt_it + 1)->x - currentPt_it->x));
-    
-    currentPt_it++;
-    for (; currentPt_it != scenarioFullEGO.end() - 1; currentPt_it++)
-    {
-        // central differencing middle points
-        derivative_1.push_back(
-            ((currentPt_it + 1)->y - (currentPt_it - 1)->y) / 
-            ((currentPt_it + 1)->x - (currentPt_it - 1)->x));
-    }
-    
-    // backward differencing last point
-    derivative_1.push_back(
-        (currentPt_it->y - (currentPt_it - 1)->y) / 
-        (currentPt_it->x - (currentPt_it - 1)->x));
-    
-
-    // scenario second derivative
-    std::vector<float> derivative_2;
-    derivative_2.reserve(scenarioFullEGO.size());
-    
-    TrajectoryPoints::iterator currentXPt_it = scenarioFullEGO.begin();
-    std::vector<float>::iterator currentY_it = derivative_1.begin();
-
-    // forward differencing first point
-    derivative_2.push_back(
-        (*(currentY_it + 1) - *currentY_it) / 
-        ((currentXPt_it + 1)->x - currentXPt_it->x));
-    
-    currentXPt_it++;
-    currentY_it++;
-    for (; currentXPt_it != scenarioFullEGO.end() - 1; currentXPt_it++)
-    {
-        // central differencing middle points
-        derivative_2.push_back(
-            (*(currentY_it + 1) - *(currentY_it - 1)) / 
-            ((currentXPt_it + 1)->x - (currentXPt_it - 1)->x));
-        
-        currentY_it++;
-    }
-    
-    // backward differencing last point
-    derivative_2.push_back(
-        (*currentY_it - *(currentY_it - 1)) / 
-        (currentXPt_it->x - (currentXPt_it - 1)->x));
-    
-    // kappa averages
-    nodePtIdxStart = 0;
+    // kappa averages between nodepoints
+    int prevNodePtIdx = 0;
     for (int nodePtIdx: nodePtIndexes)
     {
         float kappa = 0;
-        for (int i = nodePtIdxStart; i <= nodePtIdx; i++)
+        for (int i = prevNodePtIdx; i <= nodePtIdx; i++)
         {
-            kappa += derivative_2[i];
+            kappa += derivative_2[i].y;
         }
-        kappa /= nodePtIdx - nodePtIdxStart + 1;
-        nodePtIdxStart = nodePtIdx;
-
+        kappa /= nodePtIdx - prevNodePtIdx + 1;
         res.kappa.push_back(kappa);
+
+        prevNodePtIdx = nodePtIdx;
     }
     
     // visualization
@@ -408,30 +430,27 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     {
         markerArray.markers.clear();
 
-        // visualize original and transformed paths
+        // create and initialize markers
         visualization_msgs::Marker plannedPathMarker;
         visualization_msgs::Marker scenarioPathCenterMarker;
         visualization_msgs::Marker scenarioPathLeftMarker;
         visualization_msgs::Marker scenarioPathRightMarker;
-        visualization_msgs::Marker scenarioSegmentMarker[polyline_count];
         visualization_msgs::Marker polyMarker[polyline_count];
-
-        initMarker(plannedPathMarker, lanelet_frame, "planned_path", visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
-        initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
-        initMarker(scenarioPathLeftMarker, lanelet_frame, "scenario_path_left", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
-        initMarker(scenarioPathRightMarker, lanelet_frame, "scenario_path_right", visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
         
+        initMarker(plannedPathMarker,        lanelet_frame, "planned_path",                visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
+        initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center",        visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
+        initMarker(scenarioPathLeftMarker,   lanelet_frame, "scenario_path_edge_left",     visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
+        initMarker(scenarioPathRightMarker,  lanelet_frame, "scenario_path_edge_right",    visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
         for (uint8_t i = 0; i < polyline_count; i++)
-        {
-            initMarker(scenarioSegmentMarker[i], lanelet_frame, ("scenario_segment_"+std::to_string(i+1)), visualization_msgs::Marker::POINTS, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
-            initMarker(polyMarker[i], lanelet_frame, ("poly_"+std::to_string(i+1)), visualization_msgs::Marker::LINE_STRIP, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
-        }
+            initMarker(polyMarker[i],        lanelet_frame, ("poly_"+std::to_string(i+1)), visualization_msgs::Marker::LINE_STRIP, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
         
+        // planned path
         for (Points2D pt: pathPoints)
         {
             plannedPathMarker.points.push_back(convertPoint_CPP2ROS(pt));
         }
-
+        
+        // transformed scenario + road edge approximation
         for (uint16_t i = 0; i < scenarioFullEGO.size(); i++)
         {
             Points2D p;
@@ -444,21 +463,19 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             p.y -= 3.8;
             scenarioPathRightMarker.points.push_back(convertPoint_CPP2ROS(p));
         }
-
+        
+        // scenario polynomials
         for (uint8_t i = 0; i < polyline_count; i++)
         {
             for (Points2D pt: segments[i])
             {
-                scenarioSegmentMarker[i].points.push_back(convertPoint_CPP2ROS(pt));
-                
-                Points2D p = getPointOnPoly(pt.x, scenarioPolynomes[i]);
+                Points2D p = getPointOnPoly(pt.x, scenarioPolynomials[i]);
                 polyMarker[i].points.push_back(convertPoint_CPP2ROS(p));
             }
 
-            markerArray.markers.push_back(scenarioSegmentMarker[i]);
             markerArray.markers.push_back(polyMarker[i]);
         }
-
+        
         markerArray.markers.push_back(plannedPathMarker);
         markerArray.markers.push_back(scenarioPathCenterMarker);
         markerArray.markers.push_back(scenarioPathLeftMarker);

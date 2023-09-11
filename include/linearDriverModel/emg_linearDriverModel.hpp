@@ -45,9 +45,9 @@ private:
    CoordinateTransforms coordinateTransforms{};
 
    // Curve fitting - segment planner
-   SegmentPlanner    segmentPlanner{};
-   SegmentParams        segmentParams{};
-   SegmentParams        segmentParamsEgoFrame{};
+   SegmentPlanner segmentPlanner{};
+   SegmentParams  segmentParams{};
+   SegmentParams  segmentParamsEgoFrame{};
 
    // Results of the curve fitting and return of coefficients towards TRC
    PolynomialCoeffsThreeSegments trajectoryCoeffsThreeSegments{};
