@@ -11,91 +11,80 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
+#define LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
 
-#include <ros/ros.h>
-#include <geometry_msgs/Point.h>
+#include "lane_keep_system/Polynomial.h"
 
 #include <string>
 #include <vector>
 
 
-typedef geometry_msgs::Point Points2D;
+struct Points2D
+{
+   float x;
+   float y;
+};
 
 typedef std::vector<Points2D> TrajectoryPoints;
 
+typedef std::vector<TrajectoryPoints> Segments;
+
 struct PolynomialCoeffs
 {
-   float c0{0.0f};
-   float c1{0.0f};
-   float c2{0.0f};
-   float c3{0.0f};
-   float length{0.0f};
-   float breakPoint{0.0f};
+   float c0;
+   float c1;
+   float c2;
+   float c3;
 };
 
-// struct CorridorInfoCoefficients
-// {
-//    vfc::float32_t c0{0.0f};
-//    vfc::float32_t c1{0.0f};
-//    vfc::float32_t c2{0.0f};
-//    vfc::float32_t c3{0.0f};
-// };
+struct ScenarioPolynomials
+{
+   std::vector<PolynomialCoeffs> coeffs;
+   std::vector<float>            kappaNominal;
+};
 
-// struct CorridorInfo
-// {
-//    Points2D                     corridorPoints[300];
-//    vfc::CSI::si_radian_f32_t    corridorOrientation[300]{static_cast<vfc::CSI::si_radian_f32_t>(0.0)};
-//    vfc::CSI::si_per_metre_f32_t corridorCurvature[300]{static_cast<vfc::CSI::si_per_metre_f32_t>(0.0)};
-//    vfc::uint16_t                corridorLength{0U};
-// };
+struct Pose2D
+{
+   Points2D Pose2DCoordinates;
+   float    Pose2DTheta{0.0f};
+};
 
-// struct Pose2D
-// {
-//    Points2D                  Pose2DCoordinates;
-//    vfc::CSI::si_radian_f32_t Pose2DTheta{0.0f};
-// };
+struct NodePoints
+{
+   Points2D nodePointsCoordinates[4];
+   float    nodePointsTheta[4]{0.0f};
+};
 
-// struct NodePoints
-// {
-//    Points2D                  nodePointsCoordinates[4];
-//    vfc::CSI::si_radian_f32_t nodePointsTheta[4]{static_cast<vfc::CSI::si_radian_f32_t>(0.0f)};
-// };
+struct SegmentParams
+{
+   Points2D initPose[3];
+   float    initPoseTheta[3]{0.0f};
+   float    k[3]{0.0f};
+   float    dk[3]{0.0f};
+   float    L[3]{0.0f};
+};
 
-// struct SegmentParams
-// {
-//    Points2D                            initPose[3];
-//    vfc::CSI::si_radian_f32_t           initPoseTheta[3]{static_cast<vfc::CSI::si_radian_f32_t>(0.0f)};
-//    vfc::CSI::si_per_metre_f32_t        k[3]{static_cast<vfc::CSI::si_per_metre_f32_t>(0.0f)};
-//    vfc::CSI::si_per_square_metre_f32_t dk[3]{static_cast<vfc::CSI::si_per_square_metre_f32_t>(0.0f)};
-//    vfc::CSI::si_metre_f32_t            L[3]{static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
-// };
+struct PolynomialCoeffsThreeSegments
+{
+   PolynomialCoeffs  segmentCoeffs[3];
+   float             sectionBorderStart[3];
+   float             sectionBorderEnd[3];
+};
 
-// struct PolynomialCoeffsTwoSegments
-// {
-//    PolynomialCoeffs segmentCoeffs[2];
-// };
+struct LDMParamIn
+{
+   // float lookAheadDistance{250.0f};
+   int   replanCycle{25U};
+   float P[21]{0.0f};
+   float P_nodePointDistances[3]{6.0f, 24.0f, 80.0f};
+};
 
-// struct PolynomialCoeffsThreeSegments
-// {
-//    PolynomialCoeffs segmentCoeffs[3];
-//    vfc::float32_t   sectionBorderStart[3];
-//    vfc::float32_t   sectionBorderEnd[3];
-// };
+struct TrajectoryOutput
+{
+   PolynomialCoeffsThreeSegments pcts;
+   NodePoints np;
+};
 
-// struct TrajectoryPolynomial
-// {
-//    PolynomialCoeffs polynomialCoeffs;
-//    TrajectoryPoints trajectory;
-// };
 
-// struct LDMParamIn
-// {
-//    vfc::CSI::si_metre_f32_t lookAheadDistance{250.0f};
-//    vfc::uint16_t            replanCycle{25U};
-//    vfc::float32_t           P[21]{0.0f};
-//    vfc::float32_t           P_nodePointDistances[3]{0.0f, 0.1160f, 0.3840f};
-// };
-
-#endif  // DC_EMG_LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED

@@ -11,100 +11,89 @@
 ///  @file
 ///=============================================================================
 
-#include "../emg_linearDriverModel.hpp"
+#include "linearDriverModel/emg_linearDriverModel.hpp"
 
-namespace Rb
-{
-namespace Vmc
-{
 
 void CoordinateTransforms::transform2D(
    const Points2D& inPoints, const Pose2D& egoPoseGlobal, Points2D& outPoints)
 {
-   vfc::float32_t R[2]{vfc::cos(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value())),
-                       vfc::sin(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value()))};
-   vfc::float32_t translatedX{0.0};
-   vfc::float32_t translatedY{0.0};
+   float R[2]{
+      cos(egoPoseGlobal.Pose2DTheta),
+      sin(egoPoseGlobal.Pose2DTheta)};
+   float translatedX{0.0};
+   float translatedY{0.0};
 
-   translatedX = inPoints.PointsX.value() - egoPoseGlobal.Pose2DCoordinates.PointsX.value();
-   translatedY = inPoints.PointsY.value() - egoPoseGlobal.Pose2DCoordinates.PointsY.value();
+   translatedX = inPoints.x - egoPoseGlobal.Pose2DCoordinates.x;
+   translatedY = inPoints.y - egoPoseGlobal.Pose2DCoordinates.y;
 
-   outPoints.PointsX.value() = R[0] * translatedX + R[1] * translatedY;
-   outPoints.PointsY.value() = -R[1] * translatedX + R[0] * translatedY;
+   outPoints.x = R[0] * translatedX + R[1] * translatedY;
+   outPoints.y = -R[1] * translatedX + R[0] * translatedY;
 }
+
 void CoordinateTransforms::transform2D(
-   const Points2D      inPoints[300],
-   const Pose2D&       egoPoseGlobal,
-   const vfc::uint16_t length,
-   Points2D            outPoints[300])
+   const TrajectoryPoints  inPoints,
+   const Pose2D&           egoPoseGlobal,
+   TrajectoryPoints        outPoints)
 {
-   vfc::float32_t R[2]{vfc::cos(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value())),
-                       vfc::sin(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value()))};
-   vfc::float32_t translatedX[300]{0.0};
-   vfc::float32_t translatedY[300]{0.0};
+   float R[2]{
+      cos(egoPoseGlobal.Pose2DTheta),
+      sin(egoPoseGlobal.Pose2DTheta)};
+   
+   std::vector<float> translatedX;
+   translatedX.reserve(inPoints.size());
+   std::vector<float> translatedY;
+   translatedY.reserve(inPoints.size());
+   outPoints.reserve(inPoints.size());
 
-   for (uint16_t i{0}; i < length; i++)
+   for (uint16_t i{0}; i < inPoints.size(); i++)
    {
-      translatedX[i] = inPoints[i].PointsX.value() - egoPoseGlobal.Pose2DCoordinates.PointsX.value();
-      translatedY[i] = inPoints[i].PointsY.value() - egoPoseGlobal.Pose2DCoordinates.PointsY.value();
+      translatedX[i] = inPoints[i].x - egoPoseGlobal.Pose2DCoordinates.x;
+      translatedY[i] = inPoints[i].y - egoPoseGlobal.Pose2DCoordinates.y;
 
-      outPoints[i].PointsX.value() = R[0] * translatedX[i] + R[1] * translatedY[i];
-      outPoints[i].PointsY.value() = -R[1] * translatedX[i] + R[0] * translatedY[i];
+      outPoints[i].x = R[0] * translatedX[i] + R[1] * translatedY[i];
+      outPoints[i].y = -R[1] * translatedX[i] + R[0] * translatedY[i];
    }
 }
 
 void CoordinateTransforms::reverseTransform2D(
    const Points2D& inPoints, const Pose2D& egoPoseGlobal, Points2D& outPoints)
 {
-   vfc::float32_t           R[2]{vfc::cos(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value())),
-                       vfc::sin(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value()))};
-   vfc::CSI::si_metre_f32_t rotatedX{0.0};
-   vfc::CSI::si_metre_f32_t rotatedY{0.0};
+   float R[2]{
+      cos(egoPoseGlobal.Pose2DTheta),
+      sin(egoPoseGlobal.Pose2DTheta)};
+   float rotatedX{0.0};
+   float rotatedY{0.0};
 
-   rotatedX.value() = R[0] * inPoints.PointsX.value() - R[1] * inPoints.PointsY.value();
-   rotatedY.value() = R[1] * inPoints.PointsX.value() + R[0] * inPoints.PointsY.value();
+   rotatedX = R[0] * inPoints.x - R[1] * inPoints.y;
+   rotatedY = R[1] * inPoints.x + R[0] * inPoints.y;
 
-   outPoints.PointsX = rotatedX + egoPoseGlobal.Pose2DCoordinates.PointsX;
-   outPoints.PointsY = rotatedY + egoPoseGlobal.Pose2DCoordinates.PointsY;
+   outPoints.x = rotatedX + egoPoseGlobal.Pose2DCoordinates.x;
+   outPoints.y = rotatedY + egoPoseGlobal.Pose2DCoordinates.y;
 }
 
 void CoordinateTransforms::reverseTransform2D(
-   const Points2D      inPoints[300],
-   const Pose2D&       egoPoseGlobal,
-   const vfc::uint16_t length,
-   Points2D            outPoints[300])
+   const TrajectoryPoints  inPoints,
+   const Pose2D&           egoPoseGlobal,
+   TrajectoryPoints        outPoints)
 {
-   vfc::float32_t           R[2]{vfc::cos(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value())),
-                       vfc::sin(static_cast<vfc::CRadian32>(egoPoseGlobal.Pose2DTheta.value()))};
-   vfc::CSI::si_metre_f32_t rotatedX[300]{static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
-   vfc::CSI::si_metre_f32_t rotatedY[300]{static_cast<vfc::CSI::si_metre_f32_t>(0.0f)};
+   float R[2]{
+      cos(egoPoseGlobal.Pose2DTheta),
+      sin(egoPoseGlobal.Pose2DTheta)};
+   
+   std::vector<float> rotatedX;
+   rotatedX.reserve(inPoints.size());
+   std::vector<float> rotatedY;
+   rotatedY.reserve(inPoints.size());
+   outPoints.reserve(inPoints.size());
 
-   for (uint16_t i{0}; i < length; i++)
+   for (uint16_t i{0}; i < inPoints.size(); i++)
    {
-      rotatedX[i].value() = R[0] * inPoints[i].PointsX.value() - R[1] * inPoints[i].PointsY.value();
-      rotatedY[i].value() = R[1] * inPoints[i].PointsX.value() + R[0] * inPoints[i].PointsY.value();
+      rotatedX[i] = R[0] * inPoints[i].x - R[1] * inPoints[i].y;
+      rotatedY[i] = R[1] * inPoints[i].x + R[0] * inPoints[i].y;
 
-      outPoints[i].PointsX = rotatedX[i] + egoPoseGlobal.Pose2DCoordinates.PointsX;
-      outPoints[i].PointsY = rotatedY[i] + egoPoseGlobal.Pose2DCoordinates.PointsY;
+      outPoints[i].x = rotatedX[i] + egoPoseGlobal.Pose2DCoordinates.x;
+      outPoints[i].y = rotatedY[i] + egoPoseGlobal.Pose2DCoordinates.y;
    }
-}
-
-void CoordinateTransforms::angleTransform2D(
-   const Pose2D& inPose, const Pose2D& egoPoseGlobal, Pose2D& outPose)
-{
-   outPose.Pose2DTheta = inPose.Pose2DTheta + egoPoseGlobal.Pose2DTheta;
-}
-void CoordinateTransforms::angleTransform2D(
-   const CorridorInfo& corridorIn,
-   const Pose2D&       egoPoseGlobal,
-   const vfc::uint16_t length,
-   CorridorInfo&       corridorOut)
-{
-   for (uint16_t i{0}; i < length; i++)
-   {
-      corridorOut.corridorOrientation[i] = corridorIn.corridorOrientation[i] + egoPoseGlobal.Pose2DTheta;
-   }
-   memcpy(corridorOut.corridorCurvature, corridorIn.corridorCurvature, sizeof(corridorIn.corridorCurvature));
 }
 
 void CoordinateTransforms::transformNodePoints(
@@ -113,21 +102,20 @@ void CoordinateTransforms::transformNodePoints(
    const Pose2D&     egoPoseGlobal,
    NodePoints&       nodePointsLocal)
 {
-   vfc::CSI::si_metre_f32_t distance = vfc::sqrt(
-      vfc::sqr(egoPoseGlobalPlan.Pose2DCoordinates.PointsX - egoPoseGlobal.Pose2DCoordinates.PointsX)
-      + vfc::sqr(egoPoseGlobalPlan.Pose2DCoordinates.PointsY - egoPoseGlobal.Pose2DCoordinates.PointsY));
-   vfc::CSI::si_radian_f32_t dtheta = egoPoseGlobal.Pose2DTheta - egoPoseGlobalPlan.Pose2DTheta;
-   vfc::float32_t            alfa   = vfc::atan2<vfc::TRadian, vfc::float32_t>(
-                            egoPoseGlobal.Pose2DCoordinates.PointsY.value()
-                               - egoPoseGlobalPlan.Pose2DCoordinates.PointsY.value(),
-                            egoPoseGlobal.Pose2DCoordinates.PointsX.value()
-                               - egoPoseGlobalPlan.Pose2DCoordinates.PointsX.value())
-                            .value();
+   float distance = sqrt(
+      pow(egoPoseGlobalPlan.Pose2DCoordinates.x - egoPoseGlobal.Pose2DCoordinates.x, 2)
+      + pow(egoPoseGlobalPlan.Pose2DCoordinates.y - egoPoseGlobal.Pose2DCoordinates.y, 2));
+   float dtheta = egoPoseGlobal.Pose2DTheta - egoPoseGlobalPlan.Pose2DTheta;
+   float alfa   = atan2(
+      egoPoseGlobal.Pose2DCoordinates.y
+         - egoPoseGlobalPlan.Pose2DCoordinates.y,
+      egoPoseGlobal.Pose2DCoordinates.x
+         - egoPoseGlobalPlan.Pose2DCoordinates.x);
    Pose2D displacementPose{};
-   displacementPose.Pose2DCoordinates.PointsX =
-      distance * vfc::cos(static_cast<vfc::CRadian32>(alfa - egoPoseGlobalPlan.Pose2DTheta.value()));
-   displacementPose.Pose2DCoordinates.PointsY =
-      distance * vfc::sin(static_cast<vfc::CRadian32>(alfa - egoPoseGlobalPlan.Pose2DTheta.value()));
+   displacementPose.Pose2DCoordinates.x =
+      distance * cos(alfa - egoPoseGlobalPlan.Pose2DTheta);
+   displacementPose.Pose2DCoordinates.y =
+      distance * sin(alfa - egoPoseGlobalPlan.Pose2DTheta);
    displacementPose.Pose2DTheta = dtheta;
 
    for (uint8_t i{0}; i < 4; i++)
@@ -137,7 +125,3 @@ void CoordinateTransforms::transformNodePoints(
       nodePointsLocal.nodePointsTheta[i] = nodePoints.nodePointsTheta[i] - dtheta;
    }
 }
-
-
-}  // namespace Emg
-}  // namespace Dc
