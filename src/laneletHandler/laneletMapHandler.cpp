@@ -277,6 +277,32 @@ TrajectoryPoints LaneletHandler::numericalDerivative(const TrajectoryPoints& poi
     return derivative;
 }
 
+TrajectoryPoints LaneletHandler::movingAverage(const TrajectoryPoints& points, int windowSize)
+{
+    int maxCheckSize = (windowSize-1) / 2;
+    TrajectoryPoints maResult;
+
+    for (int i = 0; i < points.size(); i++)
+    {
+        int neighbourCheckSize = std::min({i, maxCheckSize, (int)points.size()-i-1});
+
+        Points2D outPt;
+        outPt.x = points[i].x;
+
+        float sum = points[i].y;
+        for (int j = 1; j <= neighbourCheckSize; j++)
+        {
+            sum += points[i-j].y;
+            sum += points[i+j].y;
+        }
+        outPt.y = sum / (neighbourCheckSize * 2 + 1);
+
+        maResult.push_back(outPt);
+    }
+
+    return maResult;
+}
+
 
 bool LaneletHandler::init()
 {
@@ -330,7 +356,6 @@ bool LaneletHandler::init()
     lanelet::routing::RoutingGraphPtr graph = lanelet::routing::RoutingGraph::build(*map, *trafficRules);
 
     // path planning
-    // TODO: make from and to inputs (tf / file / parameter)
     lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(-27757), map->laneletLayer.get(-27749));
 
     // collect points from planned path
@@ -396,7 +421,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             res.coefficients.push_back(out_coeffs);
             res.kappa.push_back(0);
         }
-        return true;
+        return false;
     }
     
     // slice trajectory at nodepoints
@@ -408,7 +433,10 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
     // calculate 2nd degree numerical derivatives for kappa
     TrajectoryPoints derivative_1 = numericalDerivative(scenarioFullEGO);
+    TrajectoryPoints derivative_1_ma = movingAverage(derivative_1, 5);
+
     TrajectoryPoints derivative_2 = numericalDerivative(derivative_1);
+    TrajectoryPoints derivative_2_ma = movingAverage(derivative_2, 5);
     
     // kappa averages between nodepoints
     int prevNodePtIdx = 0;

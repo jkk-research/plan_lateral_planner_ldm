@@ -82,8 +82,8 @@ struct LDMParamIn
 
 struct TrajectoryOutput
 {
-   PolynomialCoeffsThreeSegments pcts;
-   NodePoints np;
+   PolynomialCoeffsThreeSegments segmentCoeffs;
+   NodePoints nodePts;
 };
 
 

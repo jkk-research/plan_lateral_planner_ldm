@@ -79,6 +79,8 @@ private:
     std::vector<lane_keep_system::Polynomial> fitPolynomials(const Segments& segments);
     // Get numerical derivative of TrajectoryPoints
     TrajectoryPoints numericalDerivative(const TrajectoryPoints& points);
+    // Get moving average of the y values of TrajectoryPoints
+    TrajectoryPoints movingAverage(const TrajectoryPoints& points, int windowSize);
 
     // ROS service callback for calculating polynomial coefficients for the path ahead of the car
     bool LaneletScenarioServiceCallback(

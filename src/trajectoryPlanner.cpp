@@ -97,7 +97,7 @@ bool TrajectoryPlanner::runTrajectory()
         egoPose,
         params
     );
-    PolynomialCoeffsThreeSegments pcts = trajectoryOutput.pcts;
+    PolynomialCoeffsThreeSegments pcts = trajectoryOutput.segmentCoeffs;
 
     // visualization
     if (visualize_trajectory)
@@ -130,11 +130,10 @@ bool TrajectoryPlanner::runTrajectory()
         for (int i = 0; i < 4; i++)
         {
             geometry_msgs::Point p;
-            p.x = trajectoryOutput.np.nodePointsCoordinates[i].x;
-            p.y = trajectoryOutput.np.nodePointsCoordinates[i].y;
+            p.x = trajectoryOutput.nodePts.nodePointsCoordinates[i].x;
+            p.y = trajectoryOutput.nodePts.nodePointsCoordinates[i].y;
             p.z = 1;
             mark.points.push_back(p);
-            ROS_INFO("nodePt: %f ; %f", p.x, p.y);
         }
         markerArray.markers.push_back(mark);
         

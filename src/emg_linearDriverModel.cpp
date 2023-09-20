@@ -23,6 +23,7 @@ TrajectoryOutput LinearDriverModel::runCoeffsLite(
    bool triggerPlanner =
       controlLogic.calcValidity(corridorCoefficients, egoPoseGlobal, parameters, firstCycle);
 
+   TrajectoryOutput trajectoryOutput;
    if (controlLogic.validity)
    {
       // The planner activates after a replan cycle ends, or if the planner is not initialized.
@@ -47,8 +48,9 @@ TrajectoryOutput LinearDriverModel::runCoeffsLite(
             trajectoryCoeffsThreeSegments.sectionBorderEnd[i] =
                nodePoints.nodePointsCoordinates[i + 1U].x;
          }
-      }
 
+         trajectoryOutput.nodePts = nodePoints;
+      }
       else
       {
          memset(nodePointsEgoFrame.nodePointsCoordinates, 0.0f, sizeof(nodePointsEgoFrame.nodePointsCoordinates));
@@ -62,15 +64,12 @@ TrajectoryOutput LinearDriverModel::runCoeffsLite(
             trajectoryCoeffsThreeSegments.sectionBorderEnd[i] =
                nodePointsEgoFrame.nodePointsCoordinates[i + 1U].x;
          }
-      }
-   }
-   else
-   {
-      // TODO: invalid corridor
-   }
-   TrajectoryOutput to;
-   to.pcts = trajectoryCoeffsThreeSegments;
-   to.np = nodePointsEgoFrame;
-   return to;
 
+         trajectoryOutput.nodePts = nodePointsEgoFrame;
+      }
+      
+      trajectoryOutput.segmentCoeffs = trajectoryCoeffsThreeSegments;
+   }
+   // invalid corridor returns all 0
+   return trajectoryOutput;
 }
