@@ -35,13 +35,20 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
 {
     // set parameters
     std::vector<float> driverParams(21);
+    std::vector<float> nodePtDistances(3);
     nh.getParam("trajectory_planner/P", driverParams);
     nh.getParam("trajectory_planner/replan_cycle", params.replanCycle);
+    nh.getParam("trajectory_planner/nodePointDistances", nodePtDistances);
     nh_p.getParam("visualize", visualize_trajectory);
 
     for (uint8_t i = 0; i < 21; i++)
     {
         params.P[i] = driverParams[i];
+    }
+
+    for (uint8_t i = 0; i < 3; i++)
+    {
+        params.P_nodePointDistances[i] = nodePtDistances[i];
     }
     
     // subscribe to gps
@@ -56,10 +63,8 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     pub_visualization = nh.advertise<visualization_msgs::MarkerArray>("ldm_path", 1, true);
 }
 
-bool TrajectoryPlanner::runTrajectory()
+Pose2D TrajectoryPlanner::getEgoPose()
 {
-    ScenarioPolynomials sp = GetScenario();
-    
     Pose2D egoPose;
     geometry_msgs::PoseStamped gps_pose = currentGPSMsg;
 
@@ -78,13 +83,23 @@ bool TrajectoryPlanner::runTrajectory()
 
     egoPose.Pose2DTheta = yaw;
 
-    TrajectoryOutput to = ldm.runCoeffsLite(
+    return egoPose;
+}
+
+bool TrajectoryPlanner::runTrajectory()
+{
+    ScenarioPolynomials sp = GetScenario();
+    
+    Pose2D egoPose = getEgoPose();
+
+    TrajectoryOutput trajectoryOutput = ldm.runCoeffsLite(
         sp,
         egoPose,
         params
     );
-    PolynomialCoeffsThreeSegments pcts = to.pcts;
+    PolynomialCoeffsThreeSegments pcts = trajectoryOutput.pcts;
 
+    // visualization
     if (visualize_trajectory)
     {
         markerArray.markers.clear();
@@ -95,13 +110,18 @@ bool TrajectoryPlanner::runTrajectory()
             initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
             colors[i] = 0;
             colors[i+1] = 1;
-            for (int j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
+            
+            for (float j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
             {
                 geometry_msgs::Point p;
                 p.x = j;
-                p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * j * j + pcts.segmentCoeffs[i].c3 * j * j * j;
+                p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * pow(j, 2) + pcts.segmentCoeffs[i].c3 * pow(j, 3);
                 mark.points.push_back(p);
             }
+            geometry_msgs::Point p;
+            p.x = pcts.sectionBorderEnd[i];
+            p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * pcts.sectionBorderEnd[i] + pcts.segmentCoeffs[i].c2 * pow(pcts.sectionBorderEnd[i], 2) + pcts.segmentCoeffs[i].c3 * pow(pcts.sectionBorderEnd[i], 3);
+            mark.points.push_back(p);
             markerArray.markers.push_back(mark);
         }
         
@@ -110,10 +130,11 @@ bool TrajectoryPlanner::runTrajectory()
         for (int i = 0; i < 4; i++)
         {
             geometry_msgs::Point p;
-            p.x = to.np.nodePointsCoordinates[i].x;
-            p.y = to.np.nodePointsCoordinates[i].y;
+            p.x = trajectoryOutput.np.nodePointsCoordinates[i].x;
+            p.y = trajectoryOutput.np.nodePointsCoordinates[i].y;
             p.z = 1;
             mark.points.push_back(p);
+            ROS_INFO("nodePt: %f ; %f", p.x, p.y);
         }
         markerArray.markers.push_back(mark);
         
@@ -175,7 +196,10 @@ int main(int argc, char** argv)
     ros::spinOnce();
     ros::Duration(0.5).sleep();
 
-    ros::Rate rate(50);
+    int target_rate;
+    nh.getParam("trajectory_planner/target_rate", target_rate);
+
+    ros::Rate rate(target_rate);
 
     while (ros::ok)
     {

@@ -33,6 +33,9 @@ private:
     LinearDriverModel ldm;
     bool visualize_trajectory;
 
+    // Get ego pose
+    Pose2D getEgoPose();
+    // Get current scenario by calling the lanelet handler service
     ScenarioPolynomials GetScenario();
     // ROS callback for gps topic
     void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);

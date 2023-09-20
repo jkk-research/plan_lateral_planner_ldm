@@ -39,12 +39,12 @@ private:
    void calculateModifiedMMatrix(uint8_t);
    // helper variable for polynomial fitting
    PolynomialCoeffs polyCoeffs{};
-   float   a[4];
+   float  a[4];
    double v[9];
    double M_[4][4]{{0.0f}};
    double M[4][4]{{0.0f}};
    double detM;
-   double b[4]{{0.0f}};
+   double b[4]{0.0f};
 };
 
 #endif  // LINEARDRIVERMODEL_POLYNOMIALSUBFUNCTIONS_HPP_INCLUDED
