@@ -86,7 +86,7 @@ Points2D LaneletHandler::getPointOnPoly(const float x, const lane_keep_system::P
     return pt;
 }
 
-Pose2D LaneletHandler::getEgoPose(const geometry_msgs::PoseStamped& gps_pose)
+float LaneletHandler::getYawFromPose(const geometry_msgs::PoseStamped& gps_pose)
 {
     tf2::Quaternion q(
         gps_pose.pose.orientation.x,
@@ -98,12 +98,7 @@ Pose2D LaneletHandler::getEgoPose(const geometry_msgs::PoseStamped& gps_pose)
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
-    Pose2D egopose;
-    egopose.Pose2DCoordinates.x = gps_pose.pose.position.x;
-    egopose.Pose2DCoordinates.y = gps_pose.pose.position.y;
-    egopose.Pose2DTheta = yaw;
-
-    return egopose;
+    return yaw;
 }
 
 int LaneletHandler::getGPSNNPointIdx(const Points2D& gps_pos)
@@ -137,9 +132,9 @@ bool LaneletHandler::createScenario(
     std::vector<int>&                 nodePtIndexes)
 {
     // transform gps coordinates from global frame to lanelet frame
-    geometry_msgs::PoseStamped gpsPpose_laneletFrame;
-    tf2::doTransform<geometry_msgs::PoseStamped>(gpsPose, gpsPpose_laneletFrame, lanelet_2_map_transform);
-    Points2D gps_position = convertPoint_ROS2CPP(gpsPpose_laneletFrame.pose.position);
+    Points2D gps_position;
+    gps_position.x = gpsPose.pose.position.x - laneletFramePose.Pose2DCoordinates.x;
+    gps_position.y = gpsPose.pose.position.y - laneletFramePose.Pose2DCoordinates.y;
 
     // find nearest point to gps postition on path
     int gpsNNPointIdx = getGPSNNPointIdx(gps_position);
@@ -152,7 +147,10 @@ bool LaneletHandler::createScenario(
 
     Points2D prev_pt;
     Points2D transformedPoint;
-    Pose2D   egoPose = getEgoPose(gpsPpose_laneletFrame);
+    Pose2D egoPose;
+    egoPose.Pose2DCoordinates.x = gps_position.x;
+    egoPose.Pose2DCoordinates.y = gps_position.y;
+    egoPose.Pose2DTheta         = getYawFromPose(gpsPose);
 
     coordinateTransforms.transform2D(pathPoints[gpsNNPointIdx], egoPose, prev_pt);
     scenarioFullEGO.push_back(prev_pt);
@@ -314,10 +312,13 @@ bool LaneletHandler::init()
     nh_p.param<std::string>("ego_frame", ego_frame, "");
     nh_p.param<bool>("visualize", visualize_path, false);
 
-    // init tf listener
-    tfListener = std::make_unique<tf2_ros::TransformListener>(tfBuffer);
-    // init gps transform
-    lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", ros::Time(0), ros::Duration(3));
+    // get gps to lanelet transform
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener tfListener(tfBuffer);
+    geometry_msgs::TransformStamped lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", ros::Time(0), ros::Duration(3));
+    laneletFramePose.Pose2DCoordinates.x = -lanelet_2_map_transform.transform.translation.x;
+    laneletFramePose.Pose2DCoordinates.y = -lanelet_2_map_transform.transform.translation.y;
+    laneletFramePose.Pose2DTheta = 0;
 
     // get lanelet file path
     std::string lanelet2_file_path;

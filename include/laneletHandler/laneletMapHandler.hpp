@@ -28,16 +28,15 @@ private:
     ros::NodeHandle nh_p;
     ros::ServiceServer lanelet_service_;
     ros::Publisher pub_road_lines;
-    tf2_ros::Buffer tfBuffer;
-    std::unique_ptr<tf2_ros::TransformListener> tfListener;
-    geometry_msgs::TransformStamped lanelet_2_map_transform;
 
     visualization_msgs::MarkerArray markerArray;
+
     lanelet::ConstLanelets roadLanelets;
     TrajectoryPoints pathPoints;
     std::string gps_topic;
     std::string lanelet_frame;
     std::string ego_frame;
+    Pose2D laneletFramePose;
     bool visualize_path;
     int polyline_count;
     int lastStartPointIdx;
@@ -56,7 +55,7 @@ private:
     // Calculate distance between two given points
     float distanceBetweenPoints(const Points2D a, const Points2D b);
     // Get yaw from GPS data
-    Pose2D getEgoPose(const geometry_msgs::PoseStamped& gps_pose);
+    float getYawFromPose(const geometry_msgs::PoseStamped& gps_pose);
     // Get nearest point idx to GPS position from path
     int getGPSNNPointIdx(const Points2D& gps_pos);
     // Get point on polynom at the given x value
