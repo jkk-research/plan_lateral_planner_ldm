@@ -6,3 +6,5 @@ P: [
 replan_cycle: 1
 nodePointDistances: [25.0, 50.0, 75.0]
 target_rate: 50
+
+target_speed: 50

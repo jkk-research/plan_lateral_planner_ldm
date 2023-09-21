@@ -8,11 +8,13 @@
 #include "linearDriverModel/emg_linearDriverModel.hpp"
 
 #include <vector>
+
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
-
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <std_msgs/Float32.h>
+#include <autoware_msgs/Lane.h>
+#include <autoware_msgs/VehicleStatus.h>
 
 class TrajectoryPlanner
 {
@@ -24,21 +26,39 @@ private:
     ros::NodeHandle nh;
     ros::NodeHandle nh_p;
     ros::ServiceClient client;
-    ros::Publisher pub_visualization;
     ros::Subscriber sub_gps;
+    ros::Subscriber sub_vehicleSpeed;
+    ros::Subscriber sub_wheelAngle;
+    ros::Publisher pub_visualization;
+    ros::Publisher pub_vehicleStatus;
+    ros::Publisher pub_waypoints;
+
     geometry_msgs::PoseStamped currentGPSMsg;
     visualization_msgs::MarkerArray markerArray;
+    autoware_msgs::VehicleStatus vehicleStatus;
+    autoware_msgs::Lane waypoints;
 
     LDMParamIn params;
     LinearDriverModel ldm;
+    bool targetSpeed;
     bool visualize_trajectory;
+    float vehicleSpeed;
+    float wheelAngle;
 
+    // ROS callback for gps data
+    void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);
+    // ROS callback for vehicle speed data
+    void vehicleSpeedCallback(const std_msgs::Float32::ConstPtr& speed_msg);
+    // ROS callback for vehicle wheel angle data
+    void wheelAngleCallback(const std_msgs::Float32::ConstPtr& angle_msg);
     // Get ego pose
     Pose2D getEgoPose();
     // Get current scenario by calling the lanelet handler service
-    ScenarioPolynomials GetScenario();
-    // ROS callback for gps topic
-    void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);
+    ScenarioPolynomials getScenario();
+    // Visualize output
+    void visualizeOutput(const TrajectoryOutput& trajectoryOutput);
+    // Publish the output
+    void publishOutput(const TrajectoryOutput& trajectoryOutput, const Pose2D& egoPose);
 };
 
 #endif // TRAJECTORY_CONTROLLER_HPP_
