@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   geometry_msgs
+  autoware_msgs
   visualization_msgs
   message_generation
   lanelet2_extension
@@ -14,7 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_message_files(DIRECTORY msg
   FILES
-    Polynomial.msg)
+    Polynomial.msg
+    Derivatives.msg)
 
 add_service_files(DIRECTORY srv
   FILES
@@ -28,7 +30,7 @@ generate_messages(DEPENDENCIES
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs
+  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs autoware_msgs
 )
 
 set(trajectory_planner_dependencies
@@ -45,6 +47,9 @@ target_link_libraries(lanelet_map_handler ${catkin_LIBRARIES})
 
 add_executable(trajectory_planner src/trajectoryPlanner.cpp ${trajectory_planner_dependencies} )
 target_link_libraries(trajectory_planner ${catkin_LIBRARIES})
+
+add_executable(mpc_steering_path src/utilities/mpc_steering_path.cpp ${trajectory_planner_dependencies} )
+target_link_libraries(mpc_steering_path ${catkin_LIBRARIES})
 
 include_directories(
   include

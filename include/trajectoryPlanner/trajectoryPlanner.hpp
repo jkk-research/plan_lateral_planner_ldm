@@ -32,6 +32,7 @@ private:
     ros::Publisher pub_visualization;
     ros::Publisher pub_vehicleStatus;
     ros::Publisher pub_waypoints;
+    ros::Publisher pub_currentPose;
 
     geometry_msgs::PoseStamped currentGPSMsg;
     visualization_msgs::MarkerArray markerArray;
@@ -40,8 +41,10 @@ private:
 
     LDMParamIn params;
     LinearDriverModel ldm;
-    bool targetSpeed;
+    std::string lanelet_frame;
+    float gps_yaw_offset;
     bool visualize_trajectory;
+    float targetSpeed;
     float vehicleSpeed;
     float wheelAngle;
 
@@ -55,10 +58,12 @@ private:
     Pose2D getEgoPose();
     // Get current scenario by calling the lanelet handler service
     ScenarioPolynomials getScenario();
+    // Get point on polynomial
+    geometry_msgs::Point getROSPointOnPoly(float x, const PolynomialCoeffs& coeffs);
     // Visualize output
     void visualizeOutput(const TrajectoryOutput& trajectoryOutput);
     // Publish the output
-    void publishOutput(const TrajectoryOutput& trajectoryOutput, const Pose2D& egoPose);
+    void publishOutput(const PolynomialCoeffsThreeSegments& coeffs, const Pose2D& egoPose);
 };
 
 #endif // TRAJECTORY_CONTROLLER_HPP_

@@ -372,28 +372,13 @@ bool LaneletHandler::init()
         }
     }
     
-    // visualize in rviz if parameter set
-    if (visualize_path)
-    {
-        pub_road_lines = nh.advertise<visualization_msgs::MarkerArray>("paths", 1, true);
-
-        visualization_msgs::Marker laneletCenterlineMarker;
-
-        initMarker(laneletCenterlineMarker, lanelet_frame, "lanelet_center_line", visualization_msgs::Marker::POINTS, getColorObj(0,0,1,1), 0.5);
-
-        for (int i = 0; i < pathPoints.size(); i++)
-        {
-            laneletCenterlineMarker.points.push_back(convertPoint_CPP2ROS(pathPoints[i]));
-        }
-
-        markerArray.markers.push_back(laneletCenterlineMarker);
-        
-        pub_road_lines.publish(markerArray);
-    }
-    
     // save last point index for faster nearest neighbor search
     lastStartPointIdx = 0;
     nearestNeighborThreshold = 2;
+
+    // TEMP
+    pub_road_lines =  nh.advertise<visualization_msgs::MarkerArray>("paths", 1, true);
+    pub_derivatives = nh.advertise<lane_keep_system::Derivatives>("derivatives", 1, true);
 
     // init lanelet scenario service
     lanelet_service_ = nh.advertiseService("/get_lanelet_scenario", &LaneletHandler::LaneletScenarioServiceCallback, this);
@@ -433,12 +418,25 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     res.coefficients = scenarioPolynomials;
 
     // calculate 2nd degree numerical derivatives for kappa
-    TrajectoryPoints derivative_1 = numericalDerivative(scenarioFullEGO);
+    TrajectoryPoints derivative_1 =    numericalDerivative(scenarioFullEGO);
     TrajectoryPoints derivative_1_ma = movingAverage(derivative_1, 5);
 
-    TrajectoryPoints derivative_2 = numericalDerivative(derivative_1);
+    TrajectoryPoints derivative_2 =    numericalDerivative(derivative_1_ma);
     TrajectoryPoints derivative_2_ma = movingAverage(derivative_2, 5);
     
+    // publish derivatives for debugging
+    lane_keep_system::Derivatives plt;
+
+    for (int i = 0; i < scenarioFullEGO.size(); i++)
+    {
+        plt.x.push_back(scenarioFullEGO[i].x);
+        plt.der1.push_back(derivative_1[i].y);
+        plt.der1_ma.push_back(derivative_1_ma[i].y);
+        plt.der2.push_back(derivative_2[i].y);
+        plt.der2_ma.push_back(derivative_2_ma[i].y);
+    }
+    pub_derivatives.publish(plt);
+
     // kappa averages between nodepoints
     int prevNodePtIdx = 0;
     for (int nodePtIdx: nodePtIndexes)
@@ -464,14 +462,11 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         visualization_msgs::Marker scenarioPathCenterMarker;
         visualization_msgs::Marker scenarioPathLeftMarker;
         visualization_msgs::Marker scenarioPathRightMarker;
-        visualization_msgs::Marker polyMarker[polyline_count];
         
         initMarker(plannedPathMarker,        lanelet_frame, "planned_path",                visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
-        initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center",        visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1));
+        initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center",        visualization_msgs::Marker::POINTS,     getColorObj(1, 0.5, 0, 1));
         initMarker(scenarioPathLeftMarker,   lanelet_frame, "scenario_path_edge_left",     visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
         initMarker(scenarioPathRightMarker,  lanelet_frame, "scenario_path_edge_right",    visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
-        for (uint8_t i = 0; i < polyline_count; i++)
-            initMarker(polyMarker[i],        lanelet_frame, ("poly_"+std::to_string(i+1)), visualization_msgs::Marker::LINE_STRIP, getColorObj(i%2, (i/2)%2, 1-i%2, 1));
         
         // planned path
         for (Points2D pt: pathPoints)
@@ -491,18 +486,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             scenarioPathLeftMarker.points.push_back(convertPoint_CPP2ROS(p));
             p.y -= 3.8;
             scenarioPathRightMarker.points.push_back(convertPoint_CPP2ROS(p));
-        }
-        
-        // scenario polynomials
-        for (uint8_t i = 0; i < polyline_count; i++)
-        {
-            for (Points2D pt: segments[i])
-            {
-                Points2D p = getPointOnPoly(pt.x, scenarioPolynomials[i]);
-                polyMarker[i].points.push_back(convertPoint_CPP2ROS(p));
-            }
-
-            markerArray.markers.push_back(polyMarker[i]);
         }
         
         markerArray.markers.push_back(plannedPathMarker);

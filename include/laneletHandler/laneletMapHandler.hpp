@@ -15,6 +15,7 @@
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <lane_keep_system/Derivatives.h>
 
 #include <vector>
 #include <memory>
@@ -28,6 +29,7 @@ private:
     ros::NodeHandle nh_p;
     ros::ServiceServer lanelet_service_;
     ros::Publisher pub_road_lines;
+    ros::Publisher pub_derivatives;
 
     visualization_msgs::MarkerArray markerArray;
 

@@ -1,4 +1,4 @@
-#include "trajectoryController/trajectoryPlanner.hpp"
+#include "trajectoryPlanner/trajectoryPlanner.hpp"
 
 
 TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::NodeHandle &nh_p_) : nh(nh_), nh_p(nh_p_)
@@ -6,11 +6,13 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     // set parameters
     std::vector<float> driverParams(21);
     std::vector<float> nodePtDistances(3);
-    nh.getParam("trajectory_planner/P", driverParams);
-    nh.getParam("trajectory_planner/replan_cycle", params.replanCycle);
-    nh.getParam("trajectory_planner/nodePointDistances", nodePtDistances);
-    nh.getParam("trajectory_planner/target_speed", targetSpeed);
-    nh_p.getParam("visualize", visualize_trajectory);
+    nh.getParam(  "trajectory_planner/P",                  driverParams);
+    nh.getParam(  "trajectory_planner/replan_cycle",       params.replanCycle);
+    nh.getParam(  "trajectory_planner/nodePointDistances", nodePtDistances);
+    nh.getParam(  "trajectory_planner/target_speed",       targetSpeed);
+    nh_p.getParam("lanelet_frame",                         lanelet_frame);
+    nh_p.getParam("gps_yaw_offset",                        gps_yaw_offset);
+    nh_p.getParam("visualize",                             visualize_trajectory);
 
     for (uint8_t i = 0; i < 21; i++)
         params.P[i] = driverParams[i];
@@ -24,15 +26,16 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     // subscribers
     ROS_INFO("Waiting for GPS data on /gps/duro/current_pose");
     ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose");
-    sub_gps = nh.subscribe("/gps/duro/current_pose", 1, &TrajectoryPlanner::gpsCallback, this);
-
-    sub_vehicleSpeed = nh.subscribe("/vehicle_speed_kmph", 1, &TrajectoryPlanner::vehicleSpeedCallback, this);
-    sub_wheelAngle = nh.subscribe("/wheel_angle_deg", 1, &TrajectoryPlanner::wheelAngleCallback, this);
+    
+    sub_gps =           nh.subscribe("/gps/duro/current_pose", 1, &TrajectoryPlanner::gpsCallback, this);
+    sub_vehicleSpeed =  nh.subscribe("/vehicle_speed_kmph",    1, &TrajectoryPlanner::vehicleSpeedCallback, this);
+    sub_wheelAngle =    nh.subscribe("/wheel_angle_deg",       1, &TrajectoryPlanner::wheelAngleCallback, this);
 
     // publishers
     pub_visualization = nh.advertise<visualization_msgs::MarkerArray>("ldm_path", 1, true);
     pub_vehicleStatus = nh.advertise<autoware_msgs::VehicleStatus>("vehicle_status", 1, false);
-    pub_waypoints = nh.advertise<autoware_msgs::Lane>("base_waypoints", 1, false);
+    pub_waypoints =     nh.advertise<autoware_msgs::Lane>("mpc_waypoints", 1, false);
+    pub_currentPose =   nh.advertise<geometry_msgs::PoseStamped>("current_pose", 1, false);
 
     // connect to lanelet map service
     ros::service::waitForService("/get_lanelet_scenario");
@@ -120,6 +123,14 @@ ScenarioPolynomials TrajectoryPlanner::getScenario()
     return sp;
 }
 
+geometry_msgs::Point TrajectoryPlanner::getROSPointOnPoly(float x, const PolynomialCoeffs& coeffs)
+{
+    geometry_msgs::Point pt;
+    pt.x = x;
+    pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
+    return pt;
+}
+
 void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput)
 {
     markerArray.markers.clear();
@@ -135,26 +146,21 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
         
         for (float j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
         {
-            geometry_msgs::Point p;
-            p.x = j;
-            p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * j + pcts.segmentCoeffs[i].c2 * pow(j, 2) + pcts.segmentCoeffs[i].c3 * pow(j, 3);
-            mark.points.push_back(p);
+            mark.points.push_back(getROSPointOnPoly(j, pcts.segmentCoeffs[i]));
         }
-        geometry_msgs::Point p;
-        p.x = pcts.sectionBorderEnd[i];
-        p.y = pcts.segmentCoeffs[i].c0 + pcts.segmentCoeffs[i].c1 * pcts.sectionBorderEnd[i] + pcts.segmentCoeffs[i].c2 * pow(pcts.sectionBorderEnd[i], 2) + pcts.segmentCoeffs[i].c3 * pow(pcts.sectionBorderEnd[i], 3);
-        mark.points.push_back(p);
+
+        mark.points.push_back(getROSPointOnPoly(pcts.sectionBorderEnd[i], pcts.segmentCoeffs[i]));
         markerArray.markers.push_back(mark);
     }
     
     visualization_msgs::Marker mark;
-    initMarker(mark, "map_zala_0", "nodePts", visualization_msgs::Marker::POINTS, getColorObj(0, 1, 1, 1), 1);
+    initMarker(mark, "map_zala_0", "nodePts", visualization_msgs::Marker::POINTS, getColorObj(0, 1, 1, 1), 0.8);
     for (int i = 0; i < 4; i++)
     {
         geometry_msgs::Point p;
         p.x = trajectoryOutput.nodePts.nodePointsCoordinates[i].x;
         p.y = trajectoryOutput.nodePts.nodePointsCoordinates[i].y;
-        p.z = 1;
+        p.z = 0.5;
         mark.points.push_back(p);
     }
     markerArray.markers.push_back(mark);
@@ -166,13 +172,14 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
     geometry_msgs::Point ego_point;
     ego_point.x = 0;
     ego_point.y = 0;
+    ego_point.z = 1.5;
     ego_mark.points.push_back(ego_point);
     markerArray.markers.push_back(ego_mark);
 
     pub_visualization.publish(markerArray);
 }
 
-void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput, const Pose2D& egoPose)
+void TrajectoryPlanner::publishOutput(const PolynomialCoeffsThreeSegments& segmentCoeffs, const Pose2D& egoPose)
 {
     // vehicle_status
     vehicleStatus.header.stamp = ros::Time::now();
@@ -182,7 +189,44 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput, 
     pub_vehicleStatus.publish(vehicleStatus);
 
     // base_waypoints
-    // TODO
+    autoware_msgs::Lane lane;
+    lane.header.stamp = ros::Time::now();
+    lane.header.frame_id = lanelet_frame;
+
+    int coeffsIdx = 0;
+    float x = segmentCoeffs.sectionBorderStart[0];
+    for (; x < params.P_nodePointDistances[2]; x++)
+    {
+        PolynomialCoeffs coeffs = segmentCoeffs.segmentCoeffs[coeffsIdx];
+
+        autoware_msgs::Waypoint wp;
+        // position
+        wp.pose.pose.position = getROSPointOnPoly(x, coeffs);
+        
+        // orientation
+        float yaw = atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
+        tf2::Quaternion quat_tf;
+        quat_tf.setEuler(yaw, 0, 0);
+        quat_tf.normalize();
+        wp.pose.pose.orientation = tf2::toMsg(quat_tf);
+        
+        // speed
+        wp.twist.twist.linear.x = targetSpeed;
+
+        lane.waypoints.push_back(wp);
+
+        if (coeffsIdx > segmentCoeffs.sectionBorderEnd[coeffsIdx] && coeffsIdx < 2)
+            coeffsIdx++;
+    }
+
+    pub_waypoints.publish(lane);
+    
+    // current_pose
+    geometry_msgs::PoseStamped current_pose;
+    current_pose.header.stamp = ros::Time::now();
+    current_pose.header.frame_id = lanelet_frame;
+
+    pub_currentPose.publish(current_pose);
 }
 
 
@@ -198,7 +242,7 @@ bool TrajectoryPlanner::runTrajectory()
         params
     );
 
-    publishOutput(trajectoryOutput, egoPose);
+    publishOutput(trajectoryOutput.segmentCoeffs, egoPose);
 
     // visualization
     if (visualize_trajectory)
@@ -209,7 +253,18 @@ bool TrajectoryPlanner::runTrajectory()
 
 void TrajectoryPlanner::gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg)
 {
+    tf2::Quaternion q;
+    tf2::fromMsg(gps_msg->pose.orientation, q);
+    
+    tf2::Quaternion q_rotation;
+    q_rotation.setRPY(0, 0, gps_yaw_offset);
+
+    tf2::Quaternion q_rotated = q_rotation * q;
+    q_rotated.normalize();
+
     currentGPSMsg = *gps_msg;
+    currentGPSMsg.pose.orientation = tf2::toMsg(q_rotated);
+    
 }
 
 void TrajectoryPlanner::vehicleSpeedCallback(const std_msgs::Float32::ConstPtr& speed_msg)
@@ -241,12 +296,7 @@ int main(int argc, char** argv)
     while (ros::ok)
     {
         ros::spinOnce();
-
-        ros::Time t0 = ros::Time::now();
         trajectoryPlanner.runTrajectory();
-        ros::Time t1 = ros::Time::now();
-        ROS_INFO("Time: %f", (t1-t0).toSec());
-
         rate.sleep();
     }
 
