@@ -12,6 +12,7 @@
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 #include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
+#include "utilities/rosUtilities.hpp"
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -46,26 +47,15 @@ private:
 
     PolynomialSubfunctions polynomialSubfunctions;
     CoordinateTransforms coordinateTransforms;
+    ROSUtilities rosUtilities;
 
     // Load parameters, load lanelet file, plan path
     bool init();
     
-    // Convert Points2D to geometry_msgs::Point
-    geometry_msgs::Point convertPoint_CPP2ROS(const Points2D pt);
-    // Convert geometry_msgs::Point to Points2D
-    Points2D convertPoint_ROS2CPP(const geometry_msgs::Point geoPt);
     // Calculate distance between two given points
     float distanceBetweenPoints(const Points2D a, const Points2D b);
-    // Get yaw from GPS data
-    float getYawFromPose(const geometry_msgs::PoseStamped& gps_pose);
     // Get nearest point idx to GPS position from path
     int getGPSNNPointIdx(const Points2D& gps_pos);
-    // Get point on polynom at the given x value
-    Points2D getPointOnPoly(const float x, const lane_keep_system::Polynomial& coeffs);
-    // Get color as ROS object
-    std_msgs::ColorRGBA getColorObj(const float r, const float g, const float b, const float a);
-    // Initialize markers
-    void initMarker(visualization_msgs::Marker &m, const std::string frame_id, const std::string ns, const int32_t type, const std_msgs::ColorRGBA color, const float scale);
     // Create scenario
     bool createScenario(
         const geometry_msgs::PoseStamped& gpsPose, 

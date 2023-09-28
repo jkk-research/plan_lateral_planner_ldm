@@ -21,84 +21,10 @@ LaneletHandler::LaneletHandler(const ros::NodeHandle &nh, const ros::NodeHandle 
     }
 }
 
-geometry_msgs::Point LaneletHandler::convertPoint_CPP2ROS(const Points2D pt)
-{
-    geometry_msgs::Point geoPt;
-    geoPt.x = pt.x;
-    geoPt.y = pt.y;
-    return geoPt;
-}
-
-Points2D LaneletHandler::convertPoint_ROS2CPP(const geometry_msgs::Point geoPt)
-{
-    Points2D pt;
-    pt.x = geoPt.x;
-    pt.y = geoPt.y;
-    return pt;
-}
 
 float LaneletHandler::distanceBetweenPoints(const Points2D a, const Points2D b)
 {
     return sqrt(pow(b.x-a.x, 2)+pow(b.y-a.y, 2));
-}
-
-std_msgs::ColorRGBA LaneletHandler::getColorObj(
-    const float r, 
-    const float g, 
-    const float b, 
-    const float a)
-{
-	std_msgs::ColorRGBA c;
-    c.r = r;
-	c.g = g;
-	c.b = b;
-	c.a = a;
-    return c;
-}
-
-void LaneletHandler::initMarker(
-    visualization_msgs::Marker &m, 
-    const std::string          frame_id, 
-    const std::string          ns, 
-    const int32_t              type, 
-    const std_msgs::ColorRGBA  color, 
-    const float                scale=0.4)
-{
-    m.header.frame_id = frame_id;
-    m.header.stamp = ros::Time::now();
-    m.lifetime = ros::Duration(0);
-    m.ns = ns;
-    m.type = type;
-    m.scale.x = scale;
-    m.scale.y = scale;
-    m.scale.z = scale;
-    m.color.r = color.r;
-    m.color.g = color.g;
-    m.color.b = color.b;
-    m.color.a = color.a;
-}
-
-Points2D LaneletHandler::getPointOnPoly(const float x, const lane_keep_system::Polynomial& coeffs)
-{
-    Points2D pt;
-    pt.x = x;
-    pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
-    return pt;
-}
-
-float LaneletHandler::getYawFromPose(const geometry_msgs::PoseStamped& gps_pose)
-{
-    tf2::Quaternion q(
-        gps_pose.pose.orientation.x,
-        gps_pose.pose.orientation.y,
-        gps_pose.pose.orientation.z,
-        gps_pose.pose.orientation.w
-    );
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-
-    return yaw;
 }
 
 int LaneletHandler::getGPSNNPointIdx(const Points2D& gps_pos)
@@ -150,7 +76,7 @@ bool LaneletHandler::createScenario(
     Pose2D egoPose;
     egoPose.Pose2DCoordinates.x = gps_position.x;
     egoPose.Pose2DCoordinates.y = gps_position.y;
-    egoPose.Pose2DTheta         = getYawFromPose(gpsPose);
+    egoPose.Pose2DTheta         = rosUtilities.getYawFromPose(gpsPose);
 
     coordinateTransforms.transform2D(pathPoints[gpsNNPointIdx], egoPose, prev_pt);
     scenarioFullEGO.push_back(prev_pt);
@@ -463,15 +389,15 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         visualization_msgs::Marker scenarioPathLeftMarker;
         visualization_msgs::Marker scenarioPathRightMarker;
         
-        initMarker(plannedPathMarker,        lanelet_frame, "planned_path",                visualization_msgs::Marker::LINE_STRIP, getColorObj(0, 1, 0, 0.2));
-        initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center",        visualization_msgs::Marker::POINTS,     getColorObj(1, 0.5, 0, 1));
-        initMarker(scenarioPathLeftMarker,   lanelet_frame, "scenario_path_edge_left",     visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
-        initMarker(scenarioPathRightMarker,  lanelet_frame, "scenario_path_edge_right",    visualization_msgs::Marker::LINE_STRIP, getColorObj(1, 0.5, 0, 1), 0.2);
+        rosUtilities.initMarker(plannedPathMarker,        lanelet_frame, "planned_path",                visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(0, 1, 0, 0.2));
+        rosUtilities.initMarker(scenarioPathCenterMarker, lanelet_frame, "scenario_path_center",        visualization_msgs::Marker::POINTS,     rosUtilities.getColorObj(1, 0.5, 0, 1));
+        rosUtilities.initMarker(scenarioPathLeftMarker,   lanelet_frame, "scenario_path_edge_left",     visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+        rosUtilities.initMarker(scenarioPathRightMarker,  lanelet_frame, "scenario_path_edge_right",    visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
         
         // planned path
         for (Points2D pt: pathPoints)
         {
-            plannedPathMarker.points.push_back(convertPoint_CPP2ROS(pt));
+            plannedPathMarker.points.push_back(rosUtilities.convertPoint_CPP2ROS(pt));
         }
         
         // transformed scenario + road edge approximation
@@ -481,11 +407,11 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             p.x = scenarioFullEGO[i].x;
             p.y = scenarioFullEGO[i].y;
 
-            scenarioPathCenterMarker.points.push_back(convertPoint_CPP2ROS(p));
+            scenarioPathCenterMarker.points.push_back(rosUtilities.convertPoint_CPP2ROS(p));
             p.y += 1.9;
-            scenarioPathLeftMarker.points.push_back(convertPoint_CPP2ROS(p));
+            scenarioPathLeftMarker.points.push_back(rosUtilities.convertPoint_CPP2ROS(p));
             p.y -= 3.8;
-            scenarioPathRightMarker.points.push_back(convertPoint_CPP2ROS(p));
+            scenarioPathRightMarker.points.push_back(rosUtilities.convertPoint_CPP2ROS(p));
         }
         
         markerArray.markers.push_back(plannedPathMarker);

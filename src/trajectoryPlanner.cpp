@@ -42,55 +42,6 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     client = nh.serviceClient<lane_keep_system::GetLaneletScenario>("/get_lanelet_scenario", true);
 }
 
-void initMarker(visualization_msgs::Marker &m, std::string frame_id, std::string ns, int32_t type, std_msgs::ColorRGBA color, float scale=0.4)
-{
-    m.header.frame_id = frame_id;
-    m.header.stamp = ros::Time::now();
-    m.lifetime = ros::Duration(0);
-    m.ns = ns;
-    m.type = type;
-    m.scale.x = scale;
-    m.scale.y = scale;
-    m.scale.z = scale;
-    m.color.r = color.r;
-    m.color.g = color.g;
-    m.color.b = color.b;
-    m.color.a = color.a;
-}
-
-std_msgs::ColorRGBA getColorObj(float r, float g, float b, float a)
-{
-	std_msgs::ColorRGBA c;
-    c.r = r;
-	c.g = g;
-	c.b = b;
-	c.a = a;
-    return c;
-}
-
-Pose2D TrajectoryPlanner::getEgoPose()
-{
-    Pose2D egoPose;
-    geometry_msgs::PoseStamped gps_pose = currentGPSMsg;
-
-    egoPose.Pose2DCoordinates.x = gps_pose.pose.position.x;
-    egoPose.Pose2DCoordinates.y = gps_pose.pose.position.y;
-
-    tf2::Quaternion q(
-        gps_pose.pose.orientation.x,
-        gps_pose.pose.orientation.y,
-        gps_pose.pose.orientation.z,
-        gps_pose.pose.orientation.w
-    );
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-
-    egoPose.Pose2DTheta = yaw;
-
-    return egoPose;
-}
-
 ScenarioPolynomials TrajectoryPlanner::getScenario()
 {
     ScenarioPolynomials sp;
@@ -123,14 +74,6 @@ ScenarioPolynomials TrajectoryPlanner::getScenario()
     return sp;
 }
 
-geometry_msgs::Point TrajectoryPlanner::getROSPointOnPoly(float x, const PolynomialCoeffs& coeffs)
-{
-    geometry_msgs::Point pt;
-    pt.x = x;
-    pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
-    return pt;
-}
-
 void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput)
 {
     markerArray.markers.clear();
@@ -140,21 +83,21 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
     for (int i = 0; i < 3; i++)
     {
         visualization_msgs::Marker mark;
-        initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, getColorObj(colors[0], colors[1], colors[2], 1));
+        rosUtilities.initMarker(mark, "map_zala_0", "segment "+std::to_string(i), visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(colors[0], colors[1], colors[2], 1));
         colors[i] = 0;
         colors[i+1] = 1;
         
         for (float j = pcts.sectionBorderStart[i]; j <= pcts.sectionBorderEnd[i]; j++)
         {
-            mark.points.push_back(getROSPointOnPoly(j, pcts.segmentCoeffs[i]));
+            mark.points.push_back(rosUtilities.getROSPointOnPoly(j, pcts.segmentCoeffs[i]));
         }
 
-        mark.points.push_back(getROSPointOnPoly(pcts.sectionBorderEnd[i], pcts.segmentCoeffs[i]));
+        mark.points.push_back(rosUtilities.getROSPointOnPoly(pcts.sectionBorderEnd[i], pcts.segmentCoeffs[i]));
         markerArray.markers.push_back(mark);
     }
     
     visualization_msgs::Marker mark;
-    initMarker(mark, "map_zala_0", "nodePts", visualization_msgs::Marker::POINTS, getColorObj(0, 1, 1, 1), 0.8);
+    rosUtilities.initMarker(mark, "map_zala_0", "nodePts", visualization_msgs::Marker::POINTS, rosUtilities.getColorObj(0, 1, 1, 1), 0.8);
     for (int i = 0; i < 4; i++)
     {
         geometry_msgs::Point p;
@@ -166,7 +109,7 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
     markerArray.markers.push_back(mark);
     
     visualization_msgs::Marker ego_mark;
-    initMarker(ego_mark, "map_zala_0", "ego", visualization_msgs::Marker::POINTS, getColorObj(1, 0, 1, 1), 1);
+    rosUtilities.initMarker(ego_mark, "map_zala_0", "ego", visualization_msgs::Marker::POINTS, rosUtilities.getColorObj(1, 0, 1, 1), 1);
     ego_mark.scale.x = 4;
     ego_mark.scale.y = 1.6;
     geometry_msgs::Point ego_point;
@@ -201,7 +144,7 @@ void TrajectoryPlanner::publishOutput(const PolynomialCoeffsThreeSegments& segme
 
         autoware_msgs::Waypoint wp;
         // position
-        wp.pose.pose.position = getROSPointOnPoly(x, coeffs);
+        wp.pose.pose.position = rosUtilities.getROSPointOnPoly(x, coeffs);
         
         // orientation
         float yaw = atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
@@ -234,7 +177,7 @@ bool TrajectoryPlanner::runTrajectory()
 {
     ScenarioPolynomials sp = getScenario();
     
-    Pose2D egoPose = getEgoPose();
+    Pose2D egoPose = rosUtilities.getEgoPose(currentGPSMsg);
 
     TrajectoryOutput trajectoryOutput = ldm.runCoeffsLite(
         sp,

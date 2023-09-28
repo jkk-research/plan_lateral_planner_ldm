@@ -33,16 +33,23 @@ catkin_package(
   CATKIN_DEPENDS message_runtime std_msgs geometry_msgs autoware_msgs
 )
 
+set(lanelet_map_handler_dependencies
+  src/linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.cpp
+  src/linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.cpp
+  src/utilities/rosUtilities.cpp
+)
+
 set(trajectory_planner_dependencies
   src/linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.cpp
   src/linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.cpp
   src/linearDriverModelDriverModel/emg_linearDriverModel_driverModel.cpp
   src/linearDriverModelPlanner/emg_linearDriverModel_segmentPlanner.cpp
+  src/utilities/rosUtilities.cpp
   src/emg_linearDriverModel_controlLogic.cpp
   src/emg_linearDriverModel.cpp
 )
 
-add_executable(lanelet_map_handler src/laneletHandler/laneletMapHandler.cpp src/linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.cpp src/linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.cpp)
+add_executable(lanelet_map_handler src/laneletHandler/laneletMapHandler.cpp ${lanelet_map_handler_dependencies})
 target_link_libraries(lanelet_map_handler ${catkin_LIBRARIES})
 
 add_executable(trajectory_planner src/trajectoryPlanner.cpp ${trajectory_planner_dependencies} )
