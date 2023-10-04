@@ -45,6 +45,7 @@ private:
     std::string       lanelet_frame;
     float             gps_yaw_offset;
     bool              visualize_trajectory;
+    bool              start_on_corridor;
     float             targetSpeed;
     float             vehicleSpeed;
     float             wheelAngle;

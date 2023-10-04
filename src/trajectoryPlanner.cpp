@@ -10,6 +10,7 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     nh.getParam(  "trajectory_planner/replan_cycle",       params.replanCycle);
     nh.getParam(  "trajectory_planner/nodePointDistances", nodePtDistances);
     nh.getParam(  "trajectory_planner/target_speed",       targetSpeed);
+    nh.getParam(  "trajectory_planner/start_on_corridor",  start_on_corridor);
     nh_p.getParam("lanelet_frame",                         lanelet_frame);
     nh_p.getParam("gps_yaw_offset",                        gps_yaw_offset);
     nh_p.getParam("visualize",                             visualize_trajectory);
@@ -40,6 +41,15 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     // connect to lanelet map service
     ros::service::waitForService("/get_lanelet_scenario");
     client = nh.serviceClient<lane_keep_system::GetLaneletScenario>("/get_lanelet_scenario", true);
+
+    if (start_on_corridor)
+    {
+        ros::spinOnce();
+        ScenarioPolynomials sp = getScenario();
+        ldm.initCoeffs(sp);
+    }
+
+    ROS_INFO("Trajectory planner initialized");
 }
 
 ScenarioPolynomials TrajectoryPlanner::getScenario()

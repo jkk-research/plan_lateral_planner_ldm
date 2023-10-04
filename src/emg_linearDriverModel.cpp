@@ -13,6 +13,16 @@
 
 #include "linearDriverModel/emg_linearDriverModel.hpp"
 
+void LinearDriverModel::initCoeffs(const ScenarioPolynomials& corridorCoefficients)
+{
+   if (!firstCycle)
+      return;
+
+   for (uint8_t i{0U}; i < 3; i++)
+   {
+      trajectoryCoeffsThreeSegments.segmentCoeffs[i] = corridorCoefficients.coeffs[i];
+   }
+}
 
 TrajectoryOutput LinearDriverModel::runCoeffsLite(
    const ScenarioPolynomials&   corridorCoefficients,

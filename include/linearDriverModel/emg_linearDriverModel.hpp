@@ -27,6 +27,8 @@ public:
    TrajectoryOutput runCoeffsLite(
       const ScenarioPolynomials& corridorCoefficients, const Pose2D& egoPoseGlobal, const LDMParamIn& parameters);
 
+   void initCoeffs(const ScenarioPolynomials& corridorCoefficients);
+
    // Control Logic
    ControlLogic controlLogic{};
    
@@ -54,8 +56,6 @@ private:
 
    // internal variables
    bool                     firstCycle{true};
-
-   // TODO: MPC publisher
 };
 
 #endif  // LINEARDRIVERMODEL_HPP_INCLUDED
