@@ -21,20 +21,14 @@ TrajectoryPlanner::TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::Node
     for (uint8_t i = 0; i < 3; i++)
         params.P_nodePointDistances[i] = nodePtDistances[i];
 
-    vehicleStatus.header.frame_id = "base_link";
-    vehicleStatus.drivemode = 0;
-
     // subscribers
     ROS_INFO("Waiting for GPS data on /gps/duro/current_pose");
     ros::topic::waitForMessage<geometry_msgs::PoseStamped>("/gps/duro/current_pose");
     
     sub_gps =           nh.subscribe("/gps/duro/current_pose", 1, &TrajectoryPlanner::gpsCallback, this);
-    sub_vehicleSpeed =  nh.subscribe("/vehicle_speed_kmph",    1, &TrajectoryPlanner::vehicleSpeedCallback, this);
-    sub_wheelAngle =    nh.subscribe("/wheel_angle_deg",       1, &TrajectoryPlanner::wheelAngleCallback, this);
 
     // publishers
     pub_visualization = nh.advertise<visualization_msgs::MarkerArray>("ldm_path", 1, true);
-    pub_vehicleStatus = nh.advertise<autoware_msgs::VehicleStatus>("vehicle_status", 1, false);
     pub_waypoints =     nh.advertise<autoware_msgs::Lane>("mpc_waypoints", 1, false);
     pub_currentPose =   nh.advertise<geometry_msgs::PoseStamped>("current_pose", 1, false);
 
@@ -134,13 +128,6 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
 
 void TrajectoryPlanner::publishOutput(const PolynomialCoeffsThreeSegments& segmentCoeffs, const Pose2D& egoPose)
 {
-    // vehicle_status
-    vehicleStatus.header.stamp = ros::Time::now();
-    vehicleStatus.speed = vehicleSpeed;
-    vehicleStatus.angle = wheelAngle;
-
-    pub_vehicleStatus.publish(vehicleStatus);
-
     // base_waypoints
     autoware_msgs::Lane lane;
     lane.header.stamp = ros::Time::now();
@@ -218,16 +205,6 @@ void TrajectoryPlanner::gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& 
     currentGPSMsg = *gps_msg;
     currentGPSMsg.pose.orientation = tf2::toMsg(q_rotated);
     
-}
-
-void TrajectoryPlanner::vehicleSpeedCallback(const std_msgs::Float32::ConstPtr& speed_msg)
-{
-    vehicleSpeed = speed_msg->data;
-}
-
-void TrajectoryPlanner::wheelAngleCallback(const std_msgs::Float32::ConstPtr& angle_msg)
-{
-    wheelAngle = angle_msg->data;
 }
 
 

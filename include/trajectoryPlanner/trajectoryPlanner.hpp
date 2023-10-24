@@ -28,16 +28,12 @@ private:
     ros::NodeHandle    nh_p;
     ros::ServiceClient client;
     ros::Subscriber    sub_gps;
-    ros::Subscriber    sub_vehicleSpeed;
-    ros::Subscriber    sub_wheelAngle;
     ros::Publisher     pub_visualization;
-    ros::Publisher     pub_vehicleStatus;
     ros::Publisher     pub_waypoints;
     ros::Publisher     pub_currentPose;
 
     geometry_msgs::PoseStamped      currentGPSMsg;
     visualization_msgs::MarkerArray markerArray;
-    autoware_msgs::VehicleStatus    vehicleStatus;
     autoware_msgs::Lane             waypoints;
 
     LDMParamIn        params;
@@ -47,17 +43,11 @@ private:
     bool              visualize_trajectory;
     bool              start_on_corridor;
     float             targetSpeed;
-    float             vehicleSpeed;
-    float             wheelAngle;
 
     ROSUtilities rosUtilities;
 
     // ROS callback for gps data
     void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);
-    // ROS callback for vehicle speed data
-    void vehicleSpeedCallback(const std_msgs::Float32::ConstPtr& speed_msg);
-    // ROS callback for vehicle wheel angle data
-    void wheelAngleCallback(const std_msgs::Float32::ConstPtr& angle_msg);
     // Get current scenario by calling the lanelet handler service
     ScenarioPolynomials getScenario();
     // Visualize output

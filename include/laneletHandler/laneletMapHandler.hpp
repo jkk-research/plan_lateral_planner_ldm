@@ -2,13 +2,11 @@
 #define LANELET_MAP_HANDLER_HPP_
 
 #include <ros/ros.h>
-
 #include <lanelet2_core/LaneletMap.h>
 
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-
 #include "lane_keep_system/GetLaneletScenario.h"
+#include "lane_keep_system/Derivatives.h"
+
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 #include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
@@ -16,7 +14,8 @@
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <lane_keep_system/Derivatives.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <vector>
 #include <memory>
@@ -30,6 +29,7 @@ private:
     ros::NodeHandle nh_p;
     ros::ServiceServer lanelet_service_;
     ros::Publisher pub_road_lines;
+    ros::Publisher pub_lanelet_lines;
     ros::Publisher pub_derivatives;
 
     visualization_msgs::MarkerArray markerArray;

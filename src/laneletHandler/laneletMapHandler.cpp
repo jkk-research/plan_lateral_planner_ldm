@@ -261,7 +261,7 @@ bool LaneletHandler::init()
 
     // load lanelet file
     lanelet::ErrorMessages errors;
-    lanelet::LaneletMapPtr map = lanelet::load(lanelet2_file_path, lanelet::projection::UtmProjector(lanelet::Origin({46.894188, 16.834861, 0})), &errors);
+    lanelet::LaneletMapPtr map = lanelet::load(lanelet2_file_path, lanelet::projection::UtmProjector(lanelet::Origin({46.8941958, 16.834866, 0})), &errors);
     
     for (const auto& error : errors)
     {
@@ -285,8 +285,25 @@ bool LaneletHandler::init()
     // path planning
     lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(-27757), map->laneletLayer.get(-27749));
 
+
+    // init publishers
+    pub_road_lines =  nh.advertise<visualization_msgs::MarkerArray>("paths", 1, true);
+    pub_lanelet_lines =  nh.advertise<visualization_msgs::MarkerArray>("lanelet_lanes", 1, true);
+    // TEMP
+    pub_derivatives = nh.advertise<lane_keep_system::Derivatives>("derivatives", 1, true);
+    
+
     // collect points from planned path
     pathPoints.clear();
+    
+    visualization_msgs::Marker laneletCenterMarker;
+    visualization_msgs::Marker laneletLeftMarker;
+    visualization_msgs::Marker laneletRightMarker;
+
+    rosUtilities.initMarker(laneletCenterMarker, lanelet_frame, "lanelet_center", visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+    rosUtilities.initMarker(laneletLeftMarker,   lanelet_frame, "lanelet_left",   visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+    rosUtilities.initMarker(laneletRightMarker,  lanelet_frame, "lanelet_right",  visualization_msgs::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+
     for (auto lane = trajectory_path.get().begin(); lane != trajectory_path.get().end(); lane++)
     {
         for (auto pt = lane->centerline().begin(); pt != lane->centerline().end(); pt++)
@@ -295,20 +312,40 @@ bool LaneletHandler::init()
             p.x = pt->x();
             p.y = pt->y();
             pathPoints.push_back(p);
+
+            geometry_msgs::Point geoPt;
+            geoPt.x = p.x;
+            geoPt.y = p.y;
+            laneletCenterMarker.points.push_back(geoPt);
+        }
+        for (auto pt = lane->leftBound().begin(); pt != lane->leftBound().end(); pt++)
+        {
+            geometry_msgs::Point geoPt;
+            geoPt.x = pt->x();
+            geoPt.y = pt->y();
+            laneletLeftMarker.points.push_back(geoPt);
+        }
+        for (auto pt = lane->rightBound().begin(); pt != lane->rightBound().end(); pt++)
+        {
+            geometry_msgs::Point geoPt;
+            geoPt.x = pt->x();
+            geoPt.y = pt->y();
+            laneletRightMarker.points.push_back(geoPt);
         }
     }
-    
+    markerArray.markers.push_back(laneletCenterMarker);
+    markerArray.markers.push_back(laneletLeftMarker);
+    markerArray.markers.push_back(laneletRightMarker);
+
+    pub_lanelet_lines.publish(markerArray);
+
     // save last point index for faster nearest neighbor search
     lastStartPointIdx = 0;
     nearestNeighborThreshold = 2;
 
-    // TEMP
-    pub_road_lines =  nh.advertise<visualization_msgs::MarkerArray>("paths", 1, true);
-    pub_derivatives = nh.advertise<lane_keep_system::Derivatives>("derivatives", 1, true);
-
     // init lanelet scenario service
     lanelet_service_ = nh.advertiseService("/get_lanelet_scenario", &LaneletHandler::LaneletScenarioServiceCallback, this);
-    
+
     ROS_INFO("LaneletHandler initialized.");
     return true;
 }
@@ -361,7 +398,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         plt.der2.push_back(derivative_2[i].y);
         plt.der2_ma.push_back(derivative_2_ma[i].y);
     }
-    pub_derivatives.publish(plt);
 
     // kappa averages between nodepoints
     int prevNodePtIdx = 0;
@@ -377,6 +413,11 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         prevNodePtIdx = nodePtIdx;
     }
+    plt.kappa1 = res.kappa[0];
+    plt.kappa2 = res.kappa[1];
+    plt.kappa3 = res.kappa[2];
+
+    pub_derivatives.publish(plt);
     
     // visualization
     if (visualize_path)
