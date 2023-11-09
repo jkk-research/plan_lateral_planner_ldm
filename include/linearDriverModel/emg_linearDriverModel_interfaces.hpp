@@ -14,11 +14,9 @@
 #ifndef LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
 #define LINEARDRIVERMODEL_INTERFACES_HPP_INCLUDED
 
-#include "lane_keep_system/Polynomial.h"
-
 #include <string>
 #include <vector>
-
+#include <cmath>
 
 struct Points2D
 {

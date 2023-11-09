@@ -2,16 +2,16 @@
 
 
 void ROSUtilities::initMarker(
-    visualization_msgs::Marker &m, 
-    const std::string          frame_id, 
-    const std::string          ns, 
-    const int32_t              type, 
-    const std_msgs::ColorRGBA  color, 
-    const float                scale)
+    visualization_msgs::msg::Marker &m, 
+    const std::string               frame_id, 
+    const std::string               ns, 
+    const int32_t                   type, 
+    const std_msgs::msg::ColorRGBA  color, 
+    const float                     scale)
 {
     m.header.frame_id = frame_id;
-    m.header.stamp = ros::Time::now();
-    m.lifetime = ros::Duration(0);
+    m.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+    m.lifetime = rclcpp::Duration(0, 0);
     m.ns = ns;
     m.type = type;
     m.scale.x = scale;
@@ -23,9 +23,9 @@ void ROSUtilities::initMarker(
     m.color.a = color.a;
 }
 
-std_msgs::ColorRGBA ROSUtilities::getColorObj(float r, float g, float b, float a)
+std_msgs::msg::ColorRGBA ROSUtilities::getColorObj(float r, float g, float b, float a)
 {
-	std_msgs::ColorRGBA c;
+	std_msgs::msg::ColorRGBA c;
     c.r = r;
 	c.g = g;
 	c.b = b;
@@ -33,15 +33,15 @@ std_msgs::ColorRGBA ROSUtilities::getColorObj(float r, float g, float b, float a
     return c;
 }
 
-geometry_msgs::Point ROSUtilities::convertPoint_CPP2ROS(const Points2D pt)
+geometry_msgs::msg::Point ROSUtilities::convertPoint_CPP2ROS(const Points2D pt)
 {
-    geometry_msgs::Point geoPt;
+    geometry_msgs::msg::Point geoPt;
     geoPt.x = pt.x;
     geoPt.y = pt.y;
     return geoPt;
 }
 
-Points2D ROSUtilities::convertPoint_ROS2CPP(const geometry_msgs::Point geoPt)
+Points2D ROSUtilities::convertPoint_ROS2CPP(const geometry_msgs::msg::Point geoPt)
 {
     Points2D pt;
     pt.x = geoPt.x;
@@ -49,7 +49,7 @@ Points2D ROSUtilities::convertPoint_ROS2CPP(const geometry_msgs::Point geoPt)
     return pt;
 }
 
-float ROSUtilities::getYawFromPose(const geometry_msgs::PoseStamped& gps_pose)
+float ROSUtilities::getYawFromPose(const geometry_msgs::msg::PoseStamped& gps_pose)
 {
     tf2::Quaternion q;
     tf2::fromMsg(gps_pose.pose.orientation, q);
@@ -61,7 +61,7 @@ float ROSUtilities::getYawFromPose(const geometry_msgs::PoseStamped& gps_pose)
     return yaw;
 }
 
-Pose2D ROSUtilities::getEgoPose(const geometry_msgs::PoseStamped& gps_pose)
+Pose2D ROSUtilities::getEgoPose(const geometry_msgs::msg::PoseStamped& gps_pose)
 {
     Pose2D egoPose;
 
@@ -72,9 +72,9 @@ Pose2D ROSUtilities::getEgoPose(const geometry_msgs::PoseStamped& gps_pose)
     return egoPose;
 }
 
-geometry_msgs::Point ROSUtilities::getROSPointOnPoly(float x, const PolynomialCoeffs& coeffs)
+geometry_msgs::msg::Point ROSUtilities::getROSPointOnPoly(float x, const PolynomialCoeffs& coeffs)
 {
-    geometry_msgs::Point pt;
+    geometry_msgs::msg::Point pt;
     pt.x = x;
     pt.y = coeffs.c0 + coeffs.c1 * x + coeffs.c2 * pow(x, 2) + coeffs.c3 * pow(x, 3);
     return pt;
