@@ -1,44 +1,49 @@
 #ifndef TRAJECTORY_CONTROLLER_HPP_
 #define TRAJECTORY_CONTROLLER_HPP_
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
-#include "lane_keep_system/GetLaneletScenario.h"
+#include "lane_keep_system/srv/get_lanelet_scenario.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 #include "linearDriverModel/emg_linearDriverModel.hpp"
 #include "utilities/rosUtilities.hpp"
 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <std_msgs/msg/float32.hpp>
+
+#include <autoware_auto_planning_msgs/msg/trajectory.hpp>
+#include <autoware_auto_planning_msgs/msg/trajectory_point.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+
 #include <vector>
+#include <memory>
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <std_msgs/Float32.h>
-#include <autoware_msgs/Lane.h>
-#include <autoware_msgs/VehicleStatus.h>
-
-class TrajectoryPlanner
+class TrajectoryPlanner : public rclcpp::Node
 {
 public:
-    TrajectoryPlanner(const ros::NodeHandle &nh_, const ros::NodeHandle &nh_p_);
+    TrajectoryPlanner();
 
-    bool runTrajectory();
+    // Initialize class
+    bool init();
 private:
-    ros::NodeHandle    nh;
-    ros::NodeHandle    nh_p;
-    ros::ServiceClient client;
-    ros::Subscriber    sub_gps;
-    ros::Publisher     pub_visualization;
-    ros::Publisher     pub_waypoints;
-    ros::Publisher     pub_currentPose;
+    rclcpp::Client<lane_keep_system::srv::GetLaneletScenario>::SharedPtr       lanelet_service_client_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr           sub_gps_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr         pub_visualization_;
+    rclcpp::Publisher<autoware_auto_planning_msgs::msg::Trajectory>::SharedPtr pub_trajectory_;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr                      pub_odometry_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
-    geometry_msgs::PoseStamped      currentGPSMsg;
-    visualization_msgs::MarkerArray markerArray;
-    autoware_msgs::Lane             waypoints;
+    geometry_msgs::msg::PoseStamped              currentGPSMsg;
+    visualization_msgs::msg::MarkerArray         markerArray;
+    autoware_auto_planning_msgs::msg::Trajectory trajectory;
 
     LDMParamIn        params;
     LinearDriverModel ldm;
     std::string       lanelet_frame;
+    std::string       gps_topic;
     float             gps_yaw_offset;
     bool              visualize_trajectory;
     bool              start_on_corridor;
@@ -46,14 +51,16 @@ private:
 
     ROSUtilities rosUtilities;
 
+    // Run the planning cycle
+    bool runTrajectory();
     // ROS callback for gps data
-    void gpsCallback(const geometry_msgs::PoseStamped::ConstPtr& gps_msg);
+    void gpsCallback(const std::shared_ptr<const geometry_msgs::msg::PoseStamped>& gps_msg_);
     // Get current scenario by calling the lanelet handler service
     ScenarioPolynomials getScenario();
     // Visualize output
     void visualizeOutput(const TrajectoryOutput& trajectoryOutput);
     // Publish the output
-    void publishOutput(const PolynomialCoeffsThreeSegments& coeffs, const Pose2D& egoPose);
+    void publishOutput(const PolynomialCoeffsThreeSegments& coeffs);
 };
 
 #endif // TRAJECTORY_CONTROLLER_HPP_

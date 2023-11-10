@@ -10,6 +10,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(autoware_auto_planning_msgs REQUIRED)
+find_package(autoware_auto_vehicle_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -34,6 +37,9 @@ set(dependencies
   rclcpp
   std_msgs
   geometry_msgs
+  nav_msgs
+  autoware_auto_planning_msgs
+  autoware_auto_vehicle_msgs
   visualization_msgs
   tf2_ros
   tf2_geometry_msgs
@@ -66,8 +72,9 @@ add_executable(lanelet_map_handler src/laneletHandler/laneletMapHandler.cpp ${la
 ament_target_dependencies(lanelet_map_handler ${dependencies})
 target_link_libraries(lanelet_map_handler "${cpp_typesupport_target}")
 
-# add_executable(trajectory_planner src/trajectoryPlanner.cpp ${trajectory_planner_sources})
-# ament_target_dependencies(trajectory_planner ${dependencies})
+add_executable(trajectory_planner src/trajectoryPlanner.cpp ${trajectory_planner_sources})
+ament_target_dependencies(trajectory_planner ${dependencies})
+target_link_libraries(trajectory_planner "${cpp_typesupport_target}")
 
 # add_executable(mpc_steering_path src/utilities/mpc_steering_path.cpp ${trajectory_planner_sources})
 # ament_target_dependencies(mpc_steering_path ${dependencies})
@@ -75,13 +82,14 @@ target_link_libraries(lanelet_map_handler "${cpp_typesupport_target}")
 
 install(TARGETS
   lanelet_map_handler
-  # trajectory_planner
+  trajectory_planner
   # mpc_steering_path
   DESTINATION lib/${PROJECT_NAME})
 
 
 install(DIRECTORY
   launch
+  config
   laneletMaps
   DESTINATION share/${PROJECT_NAME}/
 )

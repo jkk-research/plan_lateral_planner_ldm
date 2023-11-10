@@ -15,6 +15,11 @@ def generate_launch_description():
         default_value='map_zala_0'
     )
 
+    gps_topic = DeclareLaunchArgument(
+        'gps_topic',
+        default_value='/nissan/gps/duro/current_pose'
+    )
+
     gps_yaw_offset = DeclareLaunchArgument(
         'gps_yaw_offset',
         default_value='0.02'
@@ -29,6 +34,12 @@ def generate_launch_description():
         'lanelet2_path',
         default_value=os.path.join(get_package_share_directory('lane_keep_system'), 'laneletMaps', 'mw.osm'),
         description='Path to the lanelet2 map file'
+    )
+
+    driverModel_params = os.path.join(
+        get_package_share_directory('lane_keep_system'),
+        'config',
+        'driverParams.yaml'
     )
 
     # NODES
@@ -53,8 +64,10 @@ def generate_launch_description():
         parameters=[
             # driverParams
             {'lanelet_frame': LaunchConfiguration('lanelet_frame')},
+            {'gps_topic': LaunchConfiguration('gps_topic')},
             {'gps_yaw_offset': LaunchConfiguration('gps_yaw_offset')},
-            {'visualize': LaunchConfiguration('visualize')}
+            {'visualize': LaunchConfiguration('visualize')},
+            driverModel_params
         ]
     )
 
@@ -79,18 +92,79 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('visualize'))
     )
 
-    # TODO: MPC
+    ### MPC ###
+
+    vehicle_info_param = os.path.join(
+        get_package_share_directory('lane_keep_system'),
+        'config',
+        'vehicle_info.param.yaml'
+    )
+
+    nearest_search_param = os.path.join(
+        get_package_share_directory('lane_keep_system'),
+        'config',
+        'nearest_search.param.yaml'
+    )
+
+    trajectory_follower_node_param = os.path.join(
+        get_package_share_directory('lane_keep_system'),
+        'config',
+        'trajectory_follower_node.param.yaml'
+    )
+
+    lat_controller_param = os.path.join(
+        get_package_share_directory('lane_keep_system'),
+        'config',
+        'mpc.param.yaml'
+    )
+
+    lon_controller_param = os.path.join(
+        get_package_share_directory('lane_keep_system'),
+        'config',
+        'pid.param.yaml'
+    )
+
+    mpc = Node(
+        package="trajectory_follower_node",
+        executable="controller_node_exe",
+        name="controller_node_exe",
+        namespace="trajectory_follower",
+        remappings=[
+            ("~/input/reference_trajectory", "/planning/scenario_planning/trajectory"),
+            ("~/input/current_odometry", "/localization/kinematic_state"),
+            ("~/input/current_steering", "/vehicle/status/steering_status"),
+            ("~/input/current_accel", "/localization/acceleration"),
+            ("~/input/current_operation_mode", "/system/operation_mode/state"),
+            ("~/output/predicted_trajectory", "lateral/predicted_trajectory"),
+            ("~/output/lateral_diagnostic", "lateral/diagnostic"),
+            ("~/output/slope_angle", "longitudinal/slope_angle"),
+            ("~/output/longitudinal_diagnostic", "longitudinal/diagnostic"),
+            ("~/output/control_cmd", "control_cmd"),
+        ],
+        parameters=[
+            {
+                "lateral_controller_mode": "mpc",
+                "longitudinal_controller_mode": "pid",
+            },
+            nearest_search_param,
+            trajectory_follower_node_param,
+            lon_controller_param,
+            lat_controller_param,
+            vehicle_info_param,
+        ],
+        output="screen",
+    )
     
 
     return LaunchDescription([
         lanelet_frame,
+        gps_topic,
         gps_yaw_offset,
         visualize,
         lanelet2_path,
         lanelet_map_handler,
-        # trajectory_planner,
+        trajectory_planner,
         # mpc_steering_path,
-        # bag_player,
         rviz,
-        # mpc_follower
+        mpc
     ])

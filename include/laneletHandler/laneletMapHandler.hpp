@@ -27,9 +27,9 @@ public:
     LaneletHandler();
 private:
     rclcpp::Service<lane_keep_system::srv::GetLaneletScenario>::SharedPtr lanelet_service_;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr    pub_road_lines;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr    pub_lanelet_lines;
-    rclcpp::Publisher<lane_keep_system::msg::Derivatives>::SharedPtr      pub_derivatives;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr    pub_road_lines_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr    pub_lanelet_lines_;
+    rclcpp::Publisher<lane_keep_system::msg::Derivatives>::SharedPtr      pub_derivatives_;
 
     visualization_msgs::msg::MarkerArray markerArray;
 
@@ -75,8 +75,8 @@ private:
 
     // ROS service callback for calculating polynomial coefficients for the path ahead of the car
     bool LaneletScenarioServiceCallback(
-        const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Request>  req,
-        const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Response> res);
+        const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Request>  req_,
+        const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Response> res_);
 };
 
 #endif // LANELET_MAP_HANDLER_HPP_

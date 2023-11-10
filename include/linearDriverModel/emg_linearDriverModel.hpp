@@ -20,6 +20,7 @@
 #include "linearDriverModelPlanner/emg_linearDriverModel_segmentPlanner.hpp"
 #include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
 
+#include <cstring>
 
 class LinearDriverModel  // cover class of DriverTrajectoryPlanner
 {

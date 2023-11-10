@@ -16,8 +16,132 @@
 LaneletHandler::LaneletHandler() : Node("lanelet_handler")
 {
     if (!init()){
+        RCLCPP_ERROR(this->get_logger(), " --- Lanelet handler initialization failed --- ");
         rclcpp::shutdown();
     }
+}
+
+
+bool LaneletHandler::init()
+{
+    std::string lanelet2_path;
+    
+    this->declare_parameter<std::string>("lanelet2_path", "");
+    this->declare_parameter<std::string>("lanelet_frame", "");
+    this->declare_parameter<std::string>("ego_frame", "");
+    this->declare_parameter<bool>("visualize", false);
+
+    // get parameters
+    this->get_parameter<std::string>("lanelet2_path", lanelet2_path);
+    this->get_parameter<std::string>("lanelet_frame", lanelet_frame);
+    this->get_parameter<std::string>("ego_frame", ego_frame);
+    this->get_parameter<bool>("visualize", visualize_path);
+
+    // get gps to lanelet transform
+    tf2_ros::Buffer tfBuffer(this->get_clock());
+    tf2_ros::TransformListener tfListener(tfBuffer);
+    geometry_msgs::msg::TransformStamped lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", rclcpp::Time(0), rclcpp::Duration(3, 0));
+    laneletFramePose.Pose2DCoordinates.x = -lanelet_2_map_transform.transform.translation.x;
+    laneletFramePose.Pose2DCoordinates.y = -lanelet_2_map_transform.transform.translation.y;
+    laneletFramePose.Pose2DTheta = 0;
+
+    // get lanelet file path
+    std::string lanelet2_file_path;
+    boost::filesystem::path path(lanelet2_path);
+    lanelet2_file_path = path.generic_string();
+
+    if (lanelet2_file_path == "")
+    {
+        RCLCPP_ERROR(this->get_logger(), "File name is not specified or wrong. [%s]", lanelet2_file_path.c_str());
+        return false;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Loading file \"%s\"", lanelet2_file_path.c_str());
+
+    // load lanelet file
+    lanelet::ErrorMessages errors;
+    lanelet::LaneletMapPtr map = lanelet::load(lanelet2_file_path, lanelet::projection::UtmProjector(lanelet::Origin({46.8941958, 16.834866, 0})), &errors);
+    
+    for (const auto& error : errors)
+    {
+        RCLCPP_ERROR_STREAM(this->get_logger(), error);
+    }
+    if (!errors.empty())
+    {
+        return false;
+    }
+
+    // isolate road lanes
+    roadLanelets = lanelet::utils::query::laneletLayer(map);
+    
+    // Initialize path planning
+    lanelet::traffic_rules::TrafficRulesPtr trafficRules{lanelet::traffic_rules::TrafficRulesFactory::instance().create(lanelet::Locations::Germany, lanelet::Participants::Vehicle)};
+    lanelet::routing::RoutingGraphPtr graph = lanelet::routing::RoutingGraph::build(*map, *trafficRules);
+
+    // path planning
+    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(-27757), map->laneletLayer.get(-27749));
+
+
+    // init publishers
+    pub_road_lines_ =    this->create_publisher<visualization_msgs::msg::MarkerArray>("paths", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    pub_lanelet_lines_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lanelet_lanes", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    pub_derivatives_ =   this->create_publisher<lane_keep_system::msg::Derivatives>  ("derivatives", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    
+    // collect points from planned path
+    pathPoints.clear();
+    
+    visualization_msgs::msg::Marker laneletCenterMarker;
+    visualization_msgs::msg::Marker laneletLeftMarker;
+    visualization_msgs::msg::Marker laneletRightMarker;
+
+    rosUtilities.initMarker(laneletCenterMarker, lanelet_frame, "lanelet_center", visualization_msgs::msg::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+    rosUtilities.initMarker(laneletLeftMarker,   lanelet_frame, "lanelet_left",   visualization_msgs::msg::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+    rosUtilities.initMarker(laneletRightMarker,  lanelet_frame, "lanelet_right",  visualization_msgs::msg::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
+
+    for (auto lane = trajectory_path.get().begin(); lane != trajectory_path.get().end(); lane++)
+    {
+        for (auto pt = lane->centerline().begin(); pt != lane->centerline().end(); pt++)
+        {
+            Points2D p;
+            p.x = pt->x();
+            p.y = pt->y();
+            pathPoints.push_back(p);
+
+            geometry_msgs::msg::Point geoPt;
+            geoPt.x = p.x;
+            geoPt.y = p.y;
+            laneletCenterMarker.points.push_back(geoPt);
+        }
+        for (auto pt = lane->leftBound().begin(); pt != lane->leftBound().end(); pt++)
+        {
+            geometry_msgs::msg::Point geoPt;
+            geoPt.x = pt->x();
+            geoPt.y = pt->y();
+            laneletLeftMarker.points.push_back(geoPt);
+        }
+        for (auto pt = lane->rightBound().begin(); pt != lane->rightBound().end(); pt++)
+        {
+            geometry_msgs::msg::Point geoPt;
+            geoPt.x = pt->x();
+            geoPt.y = pt->y();
+            laneletRightMarker.points.push_back(geoPt);
+        }
+    }
+    markerArray.markers.push_back(laneletCenterMarker);
+    markerArray.markers.push_back(laneletLeftMarker);
+    markerArray.markers.push_back(laneletRightMarker);
+
+    pub_lanelet_lines_->publish(markerArray);
+
+    // save last point index for faster nearest neighbor search
+    lastStartPointIdx = 0;
+    nearestNeighborThreshold = 2;
+
+    // init lanelet scenario service
+    lanelet_service_ = this->create_service<lane_keep_system::srv::GetLaneletScenario>("get_lanelet_scenario", std::bind(&LaneletHandler::LaneletScenarioServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+    RCLCPP_INFO(this->get_logger(), " --- LaneletHandler initialized --- ");
+    return true;
 }
 
 
@@ -226,142 +350,16 @@ TrajectoryPoints LaneletHandler::movingAverage(const TrajectoryPoints& points, i
     return maResult;
 }
 
-
-bool LaneletHandler::init()
-{
-    std::string lanelet2_path;
-    
-    this->declare_parameter<std::string>("lanelet2_path", "");
-    this->declare_parameter<std::string>("lanelet_frame", "");
-    this->declare_parameter<std::string>("ego_frame", "");
-    this->declare_parameter<bool>("visualize", false);
-
-    // get parameters
-    this->get_parameter<std::string>("lanelet2_path", lanelet2_path);
-    this->get_parameter<std::string>("lanelet_frame", lanelet_frame);
-    this->get_parameter<std::string>("ego_frame", ego_frame);
-    this->get_parameter<bool>("visualize", visualize_path);
-
-    // get gps to lanelet transform
-    tf2_ros::Buffer tfBuffer(this->get_clock());
-    tf2_ros::TransformListener tfListener(tfBuffer);
-    geometry_msgs::msg::TransformStamped lanelet_2_map_transform = tfBuffer.lookupTransform(lanelet_frame, "map", rclcpp::Time(0), rclcpp::Duration(3, 0));
-    laneletFramePose.Pose2DCoordinates.x = -lanelet_2_map_transform.transform.translation.x;
-    laneletFramePose.Pose2DCoordinates.y = -lanelet_2_map_transform.transform.translation.y;
-    laneletFramePose.Pose2DTheta = 0;
-
-    // get lanelet file path
-    std::string lanelet2_file_path;
-    boost::filesystem::path path(lanelet2_path);
-    lanelet2_file_path = path.generic_string();
-
-    if (lanelet2_file_path == "")
-    {
-        RCLCPP_ERROR(this->get_logger(), "File name is not specified or wrong. [%s]", lanelet2_file_path.c_str());
-        return false;
-    }
-
-    RCLCPP_INFO(this->get_logger(), "Loading file \"%s\"", lanelet2_file_path.c_str());
-
-    // load lanelet file
-    lanelet::ErrorMessages errors;
-    lanelet::LaneletMapPtr map = lanelet::load(lanelet2_file_path, lanelet::projection::UtmProjector(lanelet::Origin({46.8941958, 16.834866, 0})), &errors);
-    
-    for (const auto& error : errors)
-    {
-        RCLCPP_ERROR_STREAM(this->get_logger(), error);
-    }
-    if (!errors.empty())
-    {
-        return false;
-    }
-
-    // remake centerlines for better quality
-    lanelet::utils::overwriteLaneletsCenterline(map, false);
-
-    // isolate road lanes
-    roadLanelets = lanelet::utils::query::laneletLayer(map);
-    
-    // Initialize path planning
-    lanelet::traffic_rules::TrafficRulesPtr trafficRules{lanelet::traffic_rules::TrafficRulesFactory::instance().create(lanelet::Locations::Germany, lanelet::Participants::Vehicle)};
-    lanelet::routing::RoutingGraphPtr graph = lanelet::routing::RoutingGraph::build(*map, *trafficRules);
-
-    // path planning
-    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(-27757), map->laneletLayer.get(-27749));
-
-
-    // init publishers
-    pub_road_lines = this->create_publisher<visualization_msgs::msg::MarkerArray>("paths", 1);
-    pub_lanelet_lines = this->create_publisher<visualization_msgs::msg::MarkerArray>("lanelet_lanes", 1);
-    pub_derivatives = this->create_publisher<lane_keep_system::msg::Derivatives>("derivatives", 1);
-    
-    // collect points from planned path
-    pathPoints.clear();
-    
-    visualization_msgs::msg::Marker laneletCenterMarker;
-    visualization_msgs::msg::Marker laneletLeftMarker;
-    visualization_msgs::msg::Marker laneletRightMarker;
-
-    rosUtilities.initMarker(laneletCenterMarker, lanelet_frame, "lanelet_center", visualization_msgs::msg::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
-    rosUtilities.initMarker(laneletLeftMarker,   lanelet_frame, "lanelet_left",   visualization_msgs::msg::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
-    rosUtilities.initMarker(laneletRightMarker,  lanelet_frame, "lanelet_right",  visualization_msgs::msg::Marker::LINE_STRIP, rosUtilities.getColorObj(1, 0.5, 0, 1), 0.2);
-
-    for (auto lane = trajectory_path.get().begin(); lane != trajectory_path.get().end(); lane++)
-    {
-        for (auto pt = lane->centerline().begin(); pt != lane->centerline().end(); pt++)
-        {
-            Points2D p;
-            p.x = pt->x();
-            p.y = pt->y();
-            pathPoints.push_back(p);
-
-            geometry_msgs::msg::Point geoPt;
-            geoPt.x = p.x;
-            geoPt.y = p.y;
-            laneletCenterMarker.points.push_back(geoPt);
-        }
-        for (auto pt = lane->leftBound().begin(); pt != lane->leftBound().end(); pt++)
-        {
-            geometry_msgs::msg::Point geoPt;
-            geoPt.x = pt->x();
-            geoPt.y = pt->y();
-            laneletLeftMarker.points.push_back(geoPt);
-        }
-        for (auto pt = lane->rightBound().begin(); pt != lane->rightBound().end(); pt++)
-        {
-            geometry_msgs::msg::Point geoPt;
-            geoPt.x = pt->x();
-            geoPt.y = pt->y();
-            laneletRightMarker.points.push_back(geoPt);
-        }
-    }
-    markerArray.markers.push_back(laneletCenterMarker);
-    markerArray.markers.push_back(laneletLeftMarker);
-    markerArray.markers.push_back(laneletRightMarker);
-
-    pub_lanelet_lines->publish(markerArray);
-
-    // save last point index for faster nearest neighbor search
-    lastStartPointIdx = 0;
-    nearestNeighborThreshold = 2;
-
-    // init lanelet scenario service
-    lanelet_service_ = this->create_service<lane_keep_system::srv::GetLaneletScenario>("get_lanelet_scenario", std::bind(&LaneletHandler::LaneletScenarioServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-
-    RCLCPP_INFO(this->get_logger(), "LaneletHandler initialized.");
-    return true;
-}
-
 bool LaneletHandler::LaneletScenarioServiceCallback(
-    const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Request>  req,
-    const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Response> res)
+    const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Request>  req_,
+    const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Response> res_)
 {
-    polyline_count = req->node_point_distances.size();
+    polyline_count = req_->node_point_distances.size();
     
     // get scenario
     TrajectoryPoints scenarioFullEGO;
     std::vector<int> nodePtIndexes;
-    bool validScenario = createScenario(req->gps, req->node_point_distances, scenarioFullEGO, nodePtIndexes);
+    bool validScenario = createScenario(req_->gps, req_->node_point_distances, scenarioFullEGO, nodePtIndexes);
     
     if (!validScenario)
     {
@@ -369,8 +367,8 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         for (uint8_t i = 0; i < polyline_count; i++)
         {
             lane_keep_system::msg::Polynomial out_coeffs;
-            res->coefficients.push_back(out_coeffs);
-            res->kappa.push_back(0);
+            res_->coefficients.push_back(out_coeffs);
+            res_->kappa.push_back(0);
         }
         return false;
     }
@@ -380,7 +378,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
     // fit polynomes
     std::vector<lane_keep_system::msg::Polynomial> scenarioPolynomials = fitPolynomials(segments);
-    res->coefficients = scenarioPolynomials;
+    res_->coefficients = scenarioPolynomials;
 
     // calculate 2nd degree numerical derivatives for kappa
     TrajectoryPoints derivative_1 =    numericalDerivative(scenarioFullEGO);
@@ -411,15 +409,15 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
             kappa += derivative_2[i].y;
         }
         kappa /= nodePtIdx - prevNodePtIdx + 1;
-        res->kappa.push_back(kappa);
+        res_->kappa.push_back(kappa);
 
         prevNodePtIdx = nodePtIdx;
     }
-    plt.kappa1 = res->kappa[0];
-    plt.kappa2 = res->kappa[1];
-    plt.kappa3 = res->kappa[2];
+    plt.kappa1 = res_->kappa[0];
+    plt.kappa2 = res_->kappa[1];
+    plt.kappa3 = res_->kappa[2];
 
-    pub_derivatives->publish(plt);
+    pub_derivatives_->publish(plt);
     
     // visualization
     if (visualize_path)
@@ -462,7 +460,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
         markerArray.markers.push_back(scenarioPathLeftMarker);
         markerArray.markers.push_back(scenarioPathRightMarker);
 
-        pub_road_lines->publish(markerArray);
+        pub_road_lines_->publish(markerArray);
     }
     return true;
 }
