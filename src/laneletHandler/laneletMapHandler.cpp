@@ -16,7 +16,7 @@
 LaneletHandler::LaneletHandler() : Node("lanelet_handler")
 {
     if (!init()){
-        RCLCPP_ERROR(this->get_logger(), " --- Lanelet handler initialization failed --- ");
+        RCLCPP_ERROR(this->get_logger(), " !!! Lanelet handler initialization failed !!! ");
         rclcpp::shutdown();
     }
 }
@@ -24,18 +24,33 @@ LaneletHandler::LaneletHandler() : Node("lanelet_handler")
 
 bool LaneletHandler::init()
 {
+    RCLCPP_INFO(this->get_logger(), "LaneletHandler initializing...");
+
     std::string lanelet2_path;
+    float target_rate;
+    std::vector<double> node_point_distances;
     
-    this->declare_parameter<std::string>("lanelet2_path", "");
-    this->declare_parameter<std::string>("lanelet_frame", "");
-    this->declare_parameter<std::string>("ego_frame", "");
-    this->declare_parameter<bool>("visualize", false);
+    this->declare_parameter<std::string>        ("lanelet2_path",      "");
+    this->declare_parameter<std::string>        ("lanelet_frame",      "");
+    this->declare_parameter<std::string>        ("ego_frame",          "");
+    this->declare_parameter<std::string>        ("gps_topic",          "");
+    this->declare_parameter<bool>               ("visualize",          false);
+    this->declare_parameter<float>              ("target_rate",        10.0f);
+    this->declare_parameter<float>              ("gps_yaw_offset",     0.0f);
+    this->declare_parameter<std::vector<double>>("nodePointDistances", std::vector<double>{});
 
     // get parameters
-    this->get_parameter<std::string>("lanelet2_path", lanelet2_path);
-    this->get_parameter<std::string>("lanelet_frame", lanelet_frame);
-    this->get_parameter<std::string>("ego_frame", ego_frame);
-    this->get_parameter<bool>("visualize", visualize_path);
+    this->get_parameter<std::string>        ("lanelet2_path",      lanelet2_path);
+    this->get_parameter<std::string>        ("lanelet_frame",      lanelet_frame);
+    this->get_parameter<std::string>        ("ego_frame",          ego_frame);
+    this->get_parameter<std::string>        ("gps_topic",          gps_topic);
+    this->get_parameter<bool>               ("visualize",          visualize_path);
+    this->get_parameter<float>              ("target_rate",        target_rate);
+    this->get_parameter<float>              ("gps_yaw_offset",     gps_yaw_offset);
+    this->get_parameter<std::vector<double>>("nodePointDistances", node_point_distances);
+
+    for (uint8_t i = 0; i < 3; i++)
+        nodePtDistances[i] = node_point_distances[i];
 
     // get gps to lanelet transform
     tf2_ros::Buffer tfBuffer(this->get_clock());
@@ -81,12 +96,15 @@ bool LaneletHandler::init()
     // path planning
     lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(-27757), map->laneletLayer.get(-27749));
 
+    // init subscribers
+    sub_gps_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(gps_topic, 1, std::bind(&LaneletHandler::gpsCallback, this, std::placeholders::_1));
 
     // init publishers
-    pub_road_lines_ =    this->create_publisher<visualization_msgs::msg::MarkerArray>("paths", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    pub_scenario_      = this->create_publisher<lane_keep_system::msg::Scenario>     ("scenario",      rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    pub_derivatives_   = this->create_publisher<lane_keep_system::msg::Derivatives>  ("derivatives",   rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    pub_road_lines_    = this->create_publisher<visualization_msgs::msg::MarkerArray>("paths",         rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
     pub_lanelet_lines_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lanelet_lanes", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
-    pub_derivatives_ =   this->create_publisher<lane_keep_system::msg::Derivatives>  ("derivatives", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
-    
+
     // collect points from planned path
     pathPoints.clear();
     
@@ -137,11 +155,29 @@ bool LaneletHandler::init()
     lastStartPointIdx = 0;
     nearestNeighborThreshold = 2;
 
-    // init lanelet scenario service
-    lanelet_service_ = this->create_service<lane_keep_system::srv::GetLaneletScenario>("get_lanelet_scenario", std::bind(&LaneletHandler::LaneletScenarioServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+    // init timer for scenario publishing
+    timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(1000/target_rate)), std::bind(&LaneletHandler::publishScenario, this));
 
     RCLCPP_INFO(this->get_logger(), " --- LaneletHandler initialized --- ");
     return true;
+}
+
+void LaneletHandler::gpsCallback(const std::shared_ptr<const geometry_msgs::msg::PoseStamped>& gps_msg_)
+{
+    tf2::Quaternion q;
+    tf2::fromMsg(gps_msg_->pose.orientation, q);
+    
+    tf2::Quaternion q_rotation;
+    q_rotation.setRPY(0, 0, gps_yaw_offset);
+
+    tf2::Quaternion q_rotated = q_rotation * q;
+    q_rotated.normalize();
+
+    geometry_msgs::msg::PoseStamped pose;
+    pose = *gps_msg_;
+    pose.pose.orientation = tf2::toMsg(q_rotated);
+    
+    currentGPSMsg = pose;
 }
 
 
@@ -155,7 +191,7 @@ int LaneletHandler::getGPSNNPointIdx(const Points2D& gps_pos)
     int startPointIdx = lastStartPointIdx;
     bool nnTrheshold_reached = false;
     double min_dist = distanceBetweenPoints(gps_pos, pathPoints[startPointIdx]);
-    for (int i = startPointIdx+1; i < pathPoints.size(); i++)
+    for (uint32_t i = startPointIdx+1; i < pathPoints.size(); i++)
     {
         double current_dist = distanceBetweenPoints(gps_pos, pathPoints[i]);
 
@@ -176,9 +212,9 @@ int LaneletHandler::getGPSNNPointIdx(const Points2D& gps_pos)
 
 bool LaneletHandler::createScenario(
     const geometry_msgs::msg::PoseStamped& gpsPose, 
-    const std::vector<float>&              nodePtDistances,
+    const float                            nodePtDistances[3],
     TrajectoryPoints&                      scenarioFullEGO,
-    std::vector<int>&                      nodePtIndexes)
+    std::vector<uint16_t>&                 nodePtIndexes)
 {
     // transform gps coordinates from global frame to lanelet frame
     Points2D gps_position;
@@ -188,11 +224,11 @@ bool LaneletHandler::createScenario(
     // find nearest point to gps postition on path
     int gpsNNPointIdx = getGPSNNPointIdx(gps_position);
 
-    double current_length = 0;
-    int    pathPointIdx = gpsNNPointIdx + 1;
-    int    nodePtIdx = 0;
-    int    scenarioPtCounter = 1;
-    bool   isLengthReached = false;
+    double   current_length = 0;
+    uint32_t pathPointIdx = gpsNNPointIdx + 1;
+    uint16_t nodePtIdx = 0;
+    uint16_t scenarioPtCounter = 1;
+    bool     isLengthReached = false;
 
     Points2D prev_pt;
     Points2D transformedPoint;
@@ -217,7 +253,7 @@ bool LaneletHandler::createScenario(
         current_length += abs(transformedPoint.x - prev_pt.x);
 
         // node point locations in scenario
-        if (nodePtIdx < nodePtDistances.size())
+        if (nodePtIdx < POLYLINE_COUNT)
         {
             if (current_length > nodePtDistances[nodePtIdx])
             {
@@ -238,7 +274,7 @@ bool LaneletHandler::createScenario(
     }
 
     // not enough points to plan (path ended)
-    if (current_length < nodePtDistances.back())
+    if (current_length < nodePtDistances[POLYLINE_COUNT-1])
     {
         return false;
     }
@@ -246,20 +282,20 @@ bool LaneletHandler::createScenario(
 }
 
 Segments LaneletHandler::sliceScenario(
-    const TrajectoryPoints& scenarioFullEGO, 
-    const std::vector<int>& nodePtIndexes)
+    const TrajectoryPoints&      scenarioFullEGO, 
+    const std::vector<uint16_t>& nodePtIndexes)
 {
     Segments segments;
-    segments.reserve(polyline_count);
+    segments.reserve(POLYLINE_COUNT + 1);
 
-    int prevNodePtIdx = 0;
-    int segmentIdx = 0;
-    for (int nodePtIdx: nodePtIndexes)
+    uint16_t prevNodePtIdx = 0;
+    uint16_t segmentIdx = 0;
+    for (uint16_t nodePtIdx: nodePtIndexes)
     {
         TrajectoryPoints tp;
         tp.reserve(nodePtIdx - prevNodePtIdx + 1);
 
-        for (int i = prevNodePtIdx; i <= nodePtIdx; i++)
+        for (uint16_t i = prevNodePtIdx; i <= nodePtIdx; i++)
         {
             tp.push_back(scenarioFullEGO[i]);
         }
@@ -275,7 +311,7 @@ Segments LaneletHandler::sliceScenario(
 std::vector<lane_keep_system::msg::Polynomial> LaneletHandler::fitPolynomials(const Segments& segments)
 {
     std::vector<lane_keep_system::msg::Polynomial> scenarioPolynomials;
-    for (uint8_t i = 0; i < polyline_count; i++)
+    for (uint8_t i = 0; i < POLYLINE_COUNT; i++)
     {
         PolynomialCoeffs pc = polynomialSubfunctions.fitThirdOrderPolynomial(segments[i]);
         lane_keep_system::msg::Polynomial poly;
@@ -326,12 +362,12 @@ TrajectoryPoints LaneletHandler::numericalDerivative(const TrajectoryPoints& poi
 
 TrajectoryPoints LaneletHandler::movingAverage(const TrajectoryPoints& points, int windowSize)
 {
-    int maxCheckSize = (windowSize-1) / 2;
+    uint16_t maxCheckSize = (windowSize-1) / 2;
     TrajectoryPoints maResult;
 
-    for (int i = 0; i < points.size(); i++)
+    for (uint16_t i = 0; i < points.size(); i++)
     {
-        int neighbourCheckSize = std::min({i, maxCheckSize, (int)points.size()-i-1});
+        int neighbourCheckSize = std::min<uint16_t>({i, maxCheckSize, (uint16_t)(points.size()-i-1)});
 
         Points2D outPt;
         outPt.x = points[i].x;
@@ -350,27 +386,30 @@ TrajectoryPoints LaneletHandler::movingAverage(const TrajectoryPoints& points, i
     return maResult;
 }
 
-bool LaneletHandler::LaneletScenarioServiceCallback(
-    const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Request>  req_,
-    const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Response> res_)
+void LaneletHandler::publishScenario()
 {
-    polyline_count = req_->node_point_distances.size();
-    
+    geometry_msgs::msg::PoseStamped gps = currentGPSMsg;
+    lane_keep_system::msg::Scenario scenario_msg;
+    scenario_msg.gps = gps;
+
     // get scenario
     TrajectoryPoints scenarioFullEGO;
-    std::vector<int> nodePtIndexes;
-    bool validScenario = createScenario(req_->gps, req_->node_point_distances, scenarioFullEGO, nodePtIndexes);
+    std::vector<uint16_t> nodePtIndexes;
+    bool validScenario = createScenario(gps, nodePtDistances, scenarioFullEGO, nodePtIndexes);
     
     if (!validScenario)
     {
         // invalid scenario, return all 0
-        for (uint8_t i = 0; i < polyline_count; i++)
+        for (uint8_t i = 0; i < POLYLINE_COUNT; i++)
         {
             lane_keep_system::msg::Polynomial out_coeffs;
-            res_->coefficients.push_back(out_coeffs);
-            res_->kappa.push_back(0);
+            scenario_msg.coefficients.push_back(out_coeffs);
+            scenario_msg.kappa.push_back(0);
         }
-        return false;
+        scenario_msg.valid_scenario = false;
+
+        pub_scenario_->publish(scenario_msg);
+        return;
     }
     
     // slice trajectory at nodepoints
@@ -378,7 +417,7 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
     // fit polynomes
     std::vector<lane_keep_system::msg::Polynomial> scenarioPolynomials = fitPolynomials(segments);
-    res_->coefficients = scenarioPolynomials;
+    scenario_msg.coefficients = scenarioPolynomials;
 
     // calculate 2nd degree numerical derivatives for kappa
     TrajectoryPoints derivative_1 =    numericalDerivative(scenarioFullEGO);
@@ -388,36 +427,36 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
     TrajectoryPoints derivative_2_ma = movingAverage(derivative_2, 5);
     
     // publish derivatives for debugging
-    lane_keep_system::msg::Derivatives plt;
+    lane_keep_system::msg::Derivatives derivatives_msg;
 
-    for (int i = 0; i < scenarioFullEGO.size(); i++)
+    for (uint16_t i = 0; i < scenarioFullEGO.size(); i++)
     {
-        plt.x.push_back(scenarioFullEGO[i].x);
-        plt.der1.push_back(derivative_1[i].y);
-        plt.der1_ma.push_back(derivative_1_ma[i].y);
-        plt.der2.push_back(derivative_2[i].y);
-        plt.der2_ma.push_back(derivative_2_ma[i].y);
+        derivatives_msg.x.push_back(scenarioFullEGO[i].x);
+        derivatives_msg.der1.push_back(derivative_1[i].y);
+        derivatives_msg.der1_ma.push_back(derivative_1_ma[i].y);
+        derivatives_msg.der2.push_back(derivative_2[i].y);
+        derivatives_msg.der2_ma.push_back(derivative_2_ma[i].y);
     }
 
     // kappa averages between nodepoints
-    int prevNodePtIdx = 0;
-    for (int nodePtIdx: nodePtIndexes)
+    uint16_t prevNodePtIdx = 0;
+    for (uint16_t nodePtIdx: nodePtIndexes)
     {
         float kappa = 0;
-        for (int i = prevNodePtIdx; i <= nodePtIdx; i++)
+        for (uint16_t i = prevNodePtIdx; i <= nodePtIdx; i++)
         {
             kappa += derivative_2[i].y;
         }
         kappa /= nodePtIdx - prevNodePtIdx + 1;
-        res_->kappa.push_back(kappa);
+        scenario_msg.kappa.push_back(kappa);
 
         prevNodePtIdx = nodePtIdx;
     }
-    plt.kappa1 = res_->kappa[0];
-    plt.kappa2 = res_->kappa[1];
-    plt.kappa3 = res_->kappa[2];
 
-    pub_derivatives_->publish(plt);
+    // publish scenario
+    scenario_msg.valid_scenario = true;
+    pub_scenario_->publish(scenario_msg);
+    pub_derivatives_->publish(derivatives_msg);
     
     // visualization
     if (visualize_path)
@@ -462,7 +501,6 @@ bool LaneletHandler::LaneletScenarioServiceCallback(
 
         pub_road_lines_->publish(markerArray);
     }
-    return true;
 }
 
 int main(int argc, char** argv)

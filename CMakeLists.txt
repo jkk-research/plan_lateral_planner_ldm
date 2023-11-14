@@ -21,15 +21,11 @@ find_package(lanelet2_extension REQUIRED)
 set(msg_files
   "msg/Derivatives.msg"
   "msg/Polynomial.msg"
-)
-
-set(srv_files
-  "srv/GetLaneletScenario.srv"
+  "msg/Scenario.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
-  ${srv_files}
   DEPENDENCIES std_msgs geometry_msgs builtin_interfaces rosidl_default_generators
  )
 

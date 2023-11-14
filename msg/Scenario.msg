@@ -1,5 +1,4 @@
 geometry_msgs/PoseStamped gps
-float32[] node_point_distances
----
 Polynomial[] coefficients
 float32[] kappa
+bool valid_scenario

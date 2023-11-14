@@ -51,8 +51,10 @@ def generate_launch_description():
         parameters=[
             {'lanelet2_path': LaunchConfiguration('lanelet2_path')},
             {'lanelet_frame': LaunchConfiguration('lanelet_frame')},
+            {'gps_topic': LaunchConfiguration('gps_topic')},
             {'ego_frame': 'base_link'},
-            {'visualize': LaunchConfiguration('visualize')}
+            {'visualize': LaunchConfiguration('visualize')},
+            driverModel_params
         ]
     )
 
@@ -64,7 +66,6 @@ def generate_launch_description():
         parameters=[
             # driverParams
             {'lanelet_frame': LaunchConfiguration('lanelet_frame')},
-            {'gps_topic': LaunchConfiguration('gps_topic')},
             {'gps_yaw_offset': LaunchConfiguration('gps_yaw_offset')},
             {'visualize': LaunchConfiguration('visualize')},
             driverModel_params

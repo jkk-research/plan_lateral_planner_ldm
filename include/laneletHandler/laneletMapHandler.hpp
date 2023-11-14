@@ -6,6 +6,7 @@
 
 #include "lane_keep_system/srv/get_lanelet_scenario.hpp"
 #include "lane_keep_system/msg/derivatives.hpp"
+#include "lane_keep_system/msg/scenario.hpp"
 
 #include "linearDriverModelUtilities/emg_linearDriverModel_polynomialSubfunctions.hpp"
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
@@ -26,24 +27,30 @@ class LaneletHandler : public rclcpp::Node
 public:
     LaneletHandler();
 private:
-    rclcpp::Service<lane_keep_system::srv::GetLaneletScenario>::SharedPtr lanelet_service_;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr    pub_road_lines_;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr    pub_lanelet_lines_;
-    rclcpp::Publisher<lane_keep_system::msg::Derivatives>::SharedPtr      pub_derivatives_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr   sub_gps_;
+    rclcpp::Publisher<lane_keep_system::msg::Scenario>::SharedPtr      pub_scenario_;
+    rclcpp::Publisher<lane_keep_system::msg::Derivatives>::SharedPtr   pub_derivatives_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_road_lines_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_lanelet_lines_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
-    visualization_msgs::msg::MarkerArray markerArray;
-
-    lanelet::ConstLanelets roadLanelets;
-    TrajectoryPoints       pathPoints;
     Pose2D                 laneletFramePose;
+    TrajectoryPoints       pathPoints;
+    lanelet::ConstLanelets roadLanelets;
+
+    geometry_msgs::msg::PoseStamped      currentGPSMsg;
+    visualization_msgs::msg::MarkerArray markerArray;
     
+    const uint8_t POLYLINE_COUNT = 3;
+
     std::string gps_topic;
     std::string lanelet_frame;
     std::string ego_frame;
     bool        visualize_path;
-    int         polyline_count;
     int         lastStartPointIdx;
     float       nearestNeighborThreshold; // in meters
+    float       gps_yaw_offset;
+    float       nodePtDistances[3];
 
     PolynomialSubfunctions polynomialSubfunctions;
     CoordinateTransforms   coordinateTransforms;
@@ -52,6 +59,8 @@ private:
     // Load parameters, load lanelet file, plan path
     bool init();
     
+    // ROS callback for gps data
+    void gpsCallback(const std::shared_ptr<const geometry_msgs::msg::PoseStamped>& gps_msg_);
     // Calculate distance between two given points
     float distanceBetweenPoints(const Points2D a, const Points2D b);
     // Get nearest point idx to GPS position from path
@@ -59,24 +68,22 @@ private:
     // Create scenario
     bool createScenario(
         const geometry_msgs::msg::PoseStamped& gpsPose, 
-        const std::vector<float>&              nodePtDistances,
+        const float                            nodePtDistances[3],
         TrajectoryPoints&                      scenarioFullEGO,
-        std::vector<int>&                      nodePtIndexes);
+        std::vector<uint16_t>&                 nodePtIndexes);
     // Slice scenario into segments at nodepoints
     Segments sliceScenario(
-        const TrajectoryPoints& scenarioFullEGO, 
-        const std::vector<int>& nodePtIndexes);
+        const TrajectoryPoints&      scenarioFullEGO, 
+        const std::vector<uint16_t>& nodePtIndexes);
     // Fit polynomials on segments
     std::vector<lane_keep_system::msg::Polynomial> fitPolynomials(const Segments& segments);
     // Get numerical derivative of TrajectoryPoints
     TrajectoryPoints numericalDerivative(const TrajectoryPoints& points);
     // Get moving average of the y values of TrajectoryPoints
     TrajectoryPoints movingAverage(const TrajectoryPoints& points, int windowSize);
-
-    // ROS service callback for calculating polynomial coefficients for the path ahead of the car
-    bool LaneletScenarioServiceCallback(
-        const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Request>  req_,
-        const std::shared_ptr<lane_keep_system::srv::GetLaneletScenario::Response> res_);
+    
+    // Publish scenario
+    void publishScenario();
 };
 
 #endif // LANELET_MAP_HANDLER_HPP_

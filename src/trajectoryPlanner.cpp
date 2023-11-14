@@ -1,12 +1,15 @@
 #include "trajectoryPlanner/trajectoryPlanner.hpp"
 
+#include <rclcpp/wait_for_message.hpp>
+
+
 TrajectoryPlanner::TrajectoryPlanner() : Node("trajectory_planner")
 {
 }
 
 bool TrajectoryPlanner::init()
 {
-    RCLCPP_INFO(this->get_logger(), " --- Trajectory planner initializing... --- ");
+    RCLCPP_INFO(this->get_logger(), "Trajectory planner initializing...");
 
     // set parameters
     std::vector<double> driverParams;
@@ -41,23 +44,22 @@ bool TrajectoryPlanner::init()
     for (uint8_t i = 0; i < 3; i++)
         params.P_nodePointDistances[i] = nodePtDistances[i];
 
-    // subscribers
-    sub_gps_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(gps_topic, 1, std::bind(&TrajectoryPlanner::gpsCallback, this, std::placeholders::_1));
-    
-    // publishers
-    pub_visualization_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("ldm_path", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
-    pub_trajectory_ =    this->create_publisher<autoware_auto_planning_msgs::msg::Trajectory>("/planning/scenario_planning/trajectory", 1);
-
-    // connect to lanelet map service
-    lanelet_service_client_ = this->create_client<lane_keep_system::srv::GetLaneletScenario>("/get_lanelet_scenario");
-    lanelet_service_client_->wait_for_service();
-
     if (start_on_corridor)
     {
-        rclcpp::spin_some(this->shared_from_this());
+        RCLCPP_INFO(this->get_logger(), "Initializing corridor start...");
+        RCLCPP_INFO(this->get_logger(), "Waiting for scenario message...");
+        rclcpp::wait_for_message<lane_keep_system::msg::Scenario>(currentScenario, this->shared_from_this(), "/scenario");
+
         ScenarioPolynomials sp = getScenario();
         ldm.initCoeffs(sp);
     }
+
+    // subscribers
+    sub_scenario_ = this->create_subscription<lane_keep_system::msg::Scenario>("/scenario", 1, std::bind(&TrajectoryPlanner::scenarioCallback, this, std::placeholders::_1));
+
+    // publishers
+    pub_visualization_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("ldm_path", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    pub_trajectory_    = this->create_publisher<autoware_auto_planning_msgs::msg::Trajectory>("/planning/scenario_planning/trajectory", 1);
 
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(static_cast<int>(1000/target_rate)),
@@ -66,44 +68,6 @@ bool TrajectoryPlanner::init()
 
     RCLCPP_INFO(this->get_logger(), " --- Trajectory planner initialized --- ");
     return true;
-}
-
-ScenarioPolynomials TrajectoryPlanner::getScenario()
-{
-    RCLCPP_INFO(this->get_logger(), "Getting scenario");
-    ScenarioPolynomials sp;
-
-    std::shared_ptr<lane_keep_system::srv::GetLaneletScenario_Request> request_ = 
-        std::make_shared<lane_keep_system::srv::GetLaneletScenario_Request>();
-    
-    request_->node_point_distances.push_back(params.P_nodePointDistances[0]);
-    request_->node_point_distances.push_back(params.P_nodePointDistances[1]);
-    request_->node_point_distances.push_back(params.P_nodePointDistances[2]);
-    request_->gps = currentGPSMsg;
-    
-    std::shared_ptr<lane_keep_system::srv::GetLaneletScenario_Response> response_ = 
-        lanelet_service_client_->async_send_request(request_).get();
-    
-    sp.coeffs.reserve(response_->coefficients.size());
-    sp.kappaNominal.reserve(response_->kappa.size());
-
-    for (auto coeffs: response_->coefficients)
-    {
-        PolynomialCoeffs polyCoeffs;
-        polyCoeffs.c0 = coeffs.c0;
-        polyCoeffs.c1 = coeffs.c1;
-        polyCoeffs.c2 = coeffs.c2;
-        polyCoeffs.c3 = coeffs.c3;
-        sp.coeffs.push_back(polyCoeffs);
-    }
-    for (auto k: response_->kappa)
-    {
-        sp.kappaNominal.push_back(k);
-    }
-
-    RCLCPP_INFO(this->get_logger(), "Scenario received");
-
-    return sp;
 }
 
 void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput)
@@ -204,26 +168,51 @@ void TrajectoryPlanner::publishOutput(const PolynomialCoeffsThreeSegments& segme
 
     odometry.header.stamp = rclcpp::Clock().now();
     odometry.header.frame_id = lanelet_frame;
-    odometry.child_frame_id =  lanelet_frame;
+    odometry.child_frame_id  = lanelet_frame;
 
     odometry.pose.pose.orientation.w = 1;
 }
 
+void TrajectoryPlanner::scenarioCallback(const std::shared_ptr<const lane_keep_system::msg::Scenario>& msg_)
+{
+    currentScenario = *msg_;
+}
+
+ScenarioPolynomials TrajectoryPlanner::getScenario()
+{
+    ScenarioPolynomials sp;
+    for (auto coeffs: currentScenario.coefficients)
+    {
+        PolynomialCoeffs polyCoeffs;
+        polyCoeffs.c0 = coeffs.c0;
+        polyCoeffs.c1 = coeffs.c1;
+        polyCoeffs.c2 = coeffs.c2;
+        polyCoeffs.c3 = coeffs.c3;
+        sp.coeffs.push_back(polyCoeffs);
+    }
+    for (auto k: currentScenario.kappa)
+    {
+        sp.kappaNominal.push_back(k);
+    }
+    return sp;
+}
 
 bool TrajectoryPlanner::runTrajectory()
 {
-    RCLCPP_INFO(this->get_logger(), "Trajectory planner running");
+    // get scenario
     ScenarioPolynomials sp = getScenario();
-    RCLCPP_INFO(this->get_logger(), "Scenario received");
     
-    Pose2D egoPose = rosUtilities.getEgoPose(currentGPSMsg);
+    // define ego pose from scenario
+    Pose2D egoPose = rosUtilities.getEgoPose(currentScenario.gps);
 
+    // run LDM
     TrajectoryOutput trajectoryOutput = ldm.runCoeffsLite(
         sp,
         egoPose,
         params
     );
 
+    // publish output to MPC
     publishOutput(trajectoryOutput.segmentCoeffs);
 
     // visualization
@@ -232,23 +221,6 @@ bool TrajectoryPlanner::runTrajectory()
 
     return true;
 }
-
-void TrajectoryPlanner::gpsCallback(const std::shared_ptr<const geometry_msgs::msg::PoseStamped>& gps_msg_)
-{
-    tf2::Quaternion q;
-    tf2::fromMsg(gps_msg_->pose.orientation, q);
-    
-    tf2::Quaternion q_rotation;
-    q_rotation.setRPY(0, 0, gps_yaw_offset);
-
-    tf2::Quaternion q_rotated = q_rotation * q;
-    q_rotated.normalize();
-
-    currentGPSMsg = *gps_msg_;
-    currentGPSMsg.pose.orientation = tf2::toMsg(q_rotated);
-    
-}
-
 
 int main(int argc, char** argv)
 {
