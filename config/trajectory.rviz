@@ -10,7 +10,7 @@ Panels:
         - /MarkerArray2
         - /MarkerArray3
         - /MarkerArray4
-      Splitter Ratio: 0.5
+      Splitter Ratio: 0.5088235139846802
     Tree Height: 753
   - Class: rviz_common/Selection
     Name: Selection
@@ -63,38 +63,31 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lanelet_lanes
+        Value: /ldm/lanelet_lanes
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        planned_path: true
-        scenario_path_center: true
-        scenario_path_edge_left: true
-        scenario_path_edge_right: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /paths
+        Value: /ldm/paths
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        ego: true
-        nodePts: true
-        segment 0: true
-        segment 1: true
-        segment 2: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /ldm_path
+        Value: /ldm/ldm_path
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -106,7 +99,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_follower/controller_node_exe/output/debug_marker
+        Value: /ldm/trajectory_follower/controller_node_exe/output/debug_marker
       Value: true
   Enabled: true
   Global Options:
@@ -163,7 +156,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 13.132083892822266
+      Scale: 15.059046745300293
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
       X: 32.840301513671875

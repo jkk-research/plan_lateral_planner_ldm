@@ -13,7 +13,9 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(autoware_auto_planning_msgs REQUIRED)
 find_package(autoware_auto_vehicle_msgs REQUIRED)
+find_package(autoware_adapi_v1_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(pacmod3_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(lanelet2_extension REQUIRED)
@@ -22,6 +24,8 @@ set(msg_files
   "msg/Derivatives.msg"
   "msg/Polynomial.msg"
   "msg/Scenario.msg"
+  "msg/PointList.msg"
+  "msg/Trajectory.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -36,7 +40,9 @@ set(dependencies
   nav_msgs
   autoware_auto_planning_msgs
   autoware_auto_vehicle_msgs
+  autoware_adapi_v1_msgs
   visualization_msgs
+  pacmod3_msgs
   tf2_ros
   tf2_geometry_msgs
   lanelet2_extension

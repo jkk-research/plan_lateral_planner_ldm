@@ -4,7 +4,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include <lanelet2_core/LaneletMap.h>
 
-#include "lane_keep_system/srv/get_lanelet_scenario.hpp"
 #include "lane_keep_system/msg/derivatives.hpp"
 #include "lane_keep_system/msg/scenario.hpp"
 
@@ -18,6 +17,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <lane_keep_system/msg/point_list.hpp>
 
 #include <vector>
 #include <memory>
@@ -30,11 +30,11 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr   sub_gps_;
     rclcpp::Publisher<lane_keep_system::msg::Scenario>::SharedPtr      pub_scenario_;
     rclcpp::Publisher<lane_keep_system::msg::Derivatives>::SharedPtr   pub_derivatives_;
+    rclcpp::Publisher<lane_keep_system::msg::PointList>::SharedPtr     pub_centerline_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_road_lines_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_lanelet_lines_;
     rclcpp::TimerBase::SharedPtr timer_;
 
-    Pose2D                 laneletFramePose;
     TrajectoryPoints       pathPoints;
     lanelet::ConstLanelets roadLanelets;
 

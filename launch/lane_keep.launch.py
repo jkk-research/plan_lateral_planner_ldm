@@ -1,7 +1,8 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch_ros.actions import PushRosNamespace
 from launch_ros.substitutions import FindPackageShare
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition
 from ament_index_python.packages import get_package_share_directory
@@ -17,7 +18,7 @@ def generate_launch_description():
 
     gps_topic = DeclareLaunchArgument(
         'gps_topic',
-        default_value='/nissan/gps/duro/current_pose'
+        default_value='/lexus3/gps/duro/current_pose'
     )
 
     gps_yaw_offset = DeclareLaunchArgument(
@@ -32,7 +33,7 @@ def generate_launch_description():
 
     lanelet2_path = DeclareLaunchArgument(
         'lanelet2_path',
-        default_value=os.path.join(get_package_share_directory('lane_keep_system'), 'laneletMaps', 'mw.osm'),
+        default_value=os.path.join(get_package_share_directory('lane_keep_system'), 'laneletMaps', 'uni_jkk_full.osm'),
         description='Path to the lanelet2 map file'
     )
 
@@ -140,7 +141,7 @@ def generate_launch_description():
             ("~/output/lateral_diagnostic", "lateral/diagnostic"),
             ("~/output/slope_angle", "longitudinal/slope_angle"),
             ("~/output/longitudinal_diagnostic", "longitudinal/diagnostic"),
-            ("~/output/control_cmd", "control_cmd"),
+            ("~/output/control_cmd", "/control/command/control_cmd"),
         ],
         parameters=[
             {
@@ -158,14 +159,20 @@ def generate_launch_description():
     
 
     return LaunchDescription([
-        lanelet_frame,
-        gps_topic,
-        gps_yaw_offset,
-        visualize,
-        lanelet2_path,
-        lanelet_map_handler,
-        trajectory_planner,
-        # mpc_steering_path,
-        rviz,
-        mpc
+        GroupAction(
+            actions=[
+                PushRosNamespace('ldm'),
+                
+                lanelet_frame,
+                gps_topic,
+                gps_yaw_offset,
+                visualize,
+                lanelet2_path,
+                lanelet_map_handler,
+                trajectory_planner,
+                # mpc_steering_path,
+                rviz,
+                mpc
+            ]
+        )
     ])
