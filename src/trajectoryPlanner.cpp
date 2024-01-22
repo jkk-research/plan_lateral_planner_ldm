@@ -138,9 +138,6 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
     trajectory.header.stamp = rclcpp::Clock().now();
     trajectory.header.frame_id = lanelet_frame;
 
-    lane_keep_system::msg::Trajectory debug_trajectory_msg;
-    debug_trajectory_msg.stamp = rclcpp::Clock().now();
-
     int coeffsIdx = 0;
     float x = segmentCoeffs.sectionBorderStart[0];
     for (; x < params.P_nodePointDistances[2]; x++)
@@ -171,31 +168,40 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
         trajectory.points.push_back(tp);
 
         if (coeffsIdx > segmentCoeffs.sectionBorderEnd[coeffsIdx] && coeffsIdx < 2)
-        {
-            lane_keep_system::msg::Polynomial poly;
-            poly.c0 = coeffs.c0;
-            poly.c1 = coeffs.c1;
-            poly.c2 = coeffs.c2;
-            poly.c3 = coeffs.c3;
-
-            geometry_msgs::msg::Point p;
-            p.x = trajectoryOutput.nodePts.nodePointsCoordinates[coeffsIdx].x;
-            p.y = trajectoryOutput.nodePts.nodePointsCoordinates[coeffsIdx].y;
-
-            debug_trajectory_msg.coeffs.push_back(poly);
-            debug_trajectory_msg.node_point_coords.push_back(p);
-            debug_trajectory_msg.node_point_thetas.push_back(trajectoryOutput.nodePts.nodePointsTheta[coeffsIdx]);
-
             coeffsIdx++;
-        }
     }
 
     pub_trajectory_->publish(trajectory);
+
     // debug topic
+    lane_keep_system::msg::Trajectory debug_trajectory_msg;
+    debug_trajectory_msg.stamp = rclcpp::Clock().now();
+
+    for (int i = 0; i < 3; i++)
+    {
+        PolynomialCoeffs coeffs = trajectoryOutput.segmentCoeffs.segmentCoeffs[i];
+        lane_keep_system::msg::Polynomial poly;
+        poly.c0 = coeffs.c0;
+        poly.c1 = coeffs.c1;
+        poly.c2 = coeffs.c2;
+        poly.c3 = coeffs.c3;
+
+        debug_trajectory_msg.coeffs.push_back(poly);
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        geometry_msgs::msg::Point p;
+        p.x = trajectoryOutput.nodePts.nodePointsCoordinates[coeffsIdx].x;
+        p.y = trajectoryOutput.nodePts.nodePointsCoordinates[coeffsIdx].y;
+
+        debug_trajectory_msg.node_point_coords.push_back(p);
+    }
+
+    debug_trajectory_msg.node_point_thetas.push_back(trajectoryOutput.nodePts.nodePointsTheta[coeffsIdx]);
     pub_debug_trajectory_->publish(debug_trajectory_msg);
 
     // odometry
-
     nav_msgs::msg::Odometry odometry;
 
     odometry.header.stamp = rclcpp::Clock().now();
