@@ -35,13 +35,13 @@ void DriverModel::driverModelPlannerLite(
    offsetCalcExtendedLDM(parameters, corridorPolynomials.kappaNominal);
 
    // intializing with further most segment due to extrapolation
-   if (trajectoryCoeffsThreeSegments.sectionBorderStart[0] > 0.0f)
+   if (trajectoryCoeffsThreeSegments.sectionBorderEnd[2] < 0.0f)
    {
-      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[0];
+      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[2];
    }
    else
    {
-      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[2];
+      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[0];
       for (uint8_t i{0U}; i < 3; i++)
       {
          if (
