@@ -147,7 +147,7 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
         autoware_auto_planning_msgs::msg::TrajectoryPoint tp;
         // position
         tp.pose.position = rosUtilities.getROSPointOnPoly(x, coeffs);
-     
+
         // orientation
         float yaw = atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
         tf2::Quaternion quat_tf;
@@ -166,8 +166,8 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
         // rear_wheel_angle_rad
 
         trajectory.points.push_back(tp);
-
-        if (coeffsIdx > segmentCoeffs.sectionBorderEnd[coeffsIdx] && coeffsIdx < 2)
+        
+        if (x > segmentCoeffs.sectionBorderEnd[coeffsIdx] && coeffsIdx < 2)
             coeffsIdx++;
     }
 
