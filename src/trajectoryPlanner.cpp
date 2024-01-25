@@ -151,8 +151,8 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
         // orientation
         float yaw = atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
         tf2::Quaternion quat_tf;
-        quat_tf.setEuler(yaw, 0, 0);
-        quat_tf.normalize();
+        quat_tf.setRPY(0, 0, yaw);
+        quat_tf = quat_tf.normalize();
         tp.pose.orientation = tf2::toMsg(quat_tf);
 
         // speed
