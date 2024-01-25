@@ -107,11 +107,8 @@ bool LaneletHandler::init()
     lanelet::traffic_rules::TrafficRulesPtr trafficRules{lanelet::traffic_rules::TrafficRulesFactory::instance().create(lanelet::Locations::Germany, lanelet::Participants::Vehicle)};
     lanelet::routing::RoutingGraphPtr graph = lanelet::routing::RoutingGraph::build(*map, *trafficRules);
 
-    lanelet::ConstLanelets pathLanelets;
-    pathLanelets.push_back(map->laneletLayer.get(10649));
-
     // path planning
-    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPathVia(map->laneletLayer.get(13235), pathLanelets, map->laneletLayer.get(13235));
+    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(27757), map->laneletLayer.get(27749));
 
     // init subscribers
     sub_gps_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(gps_topic, 1, std::bind(&LaneletHandler::gpsCallback, this, std::placeholders::_1));
@@ -247,7 +244,6 @@ bool LaneletHandler::createScenario(
     TrajectoryPoints&                      scenarioFullEGO,
     std::vector<uint16_t>&                 nodePtIndexes)
 {
-    // transform gps coordinates from global frame to lanelet frame
     Points2D gps_position;
     gps_position.x = gpsPose.pose.position.x;
     gps_position.y = gpsPose.pose.position.y;

@@ -192,8 +192,8 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
     for (int i = 0; i < 3; i++)
     {
         geometry_msgs::msg::Point p;
-        p.x = trajectoryOutput.nodePts.nodePointsCoordinates[coeffsIdx].x;
-        p.y = trajectoryOutput.nodePts.nodePointsCoordinates[coeffsIdx].y;
+        p.x = trajectoryOutput.nodePts.nodePointsCoordinates[i].x;
+        p.y = trajectoryOutput.nodePts.nodePointsCoordinates[i].y;
 
         debug_trajectory_msg.node_point_coords.push_back(p);
     }
