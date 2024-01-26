@@ -34,7 +34,7 @@ def generate_launch_description():
 
     lanelet2_path = DeclareLaunchArgument(
         'lanelet2_path',
-        default_value=os.path.join(get_package_share_directory('lane_keep_system'), 'laneletMaps', 'mw.osm'),
+        default_value=os.path.join(get_package_share_directory('lane_keep_system'), 'laneletMaps', 'mw_local.osm'),
         description='Path to the lanelet2 map file'
     )
 
