@@ -2,7 +2,8 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 from launch_ros.substitutions import FindPackageShare
-from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
+from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition
 from ament_index_python.packages import get_package_share_directory
@@ -23,7 +24,7 @@ def generate_launch_description():
 
     gps_yaw_offset = DeclareLaunchArgument(
         'gps_yaw_offset',
-        default_value='0.02'
+        default_value='0.00'
     )
 
     visualize = DeclareLaunchArgument(
@@ -71,6 +72,30 @@ def generate_launch_description():
             {'visualize': LaunchConfiguration('visualize')},
             driverModel_params
         ]
+    )
+
+    raw_vehicle_converter = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('raw_vehicle_cmd_converter'),
+                'launch',
+                'raw_vehicle_converter.launch.xml'
+            )
+        )
+    )
+
+    # ros2 launch pacmod_interface pacmod_interface.launch.xml vehicle_model:=lexus3_vehicle
+    pacmod_interface = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('pacmod_interface'),
+                'launch',
+                'pacmod_interface.launch.xml'
+            ),
+        ),
+        launch_arguments={
+            "vehicle_model": "lexus3_vehicle",
+        }.items()
     )
 
     mpc_steering_path = Node(
@@ -159,10 +184,13 @@ def generate_launch_description():
     
 
     return LaunchDescription([
+        raw_vehicle_converter,
+        pacmod_interface,
+
         GroupAction(
             actions=[
                 PushRosNamespace('ldm'),
-                
+
                 lanelet_frame,
                 gps_topic,
                 gps_yaw_offset,
