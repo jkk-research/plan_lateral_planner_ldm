@@ -8,6 +8,8 @@
     replan_cycle:       60
     nodePointDistances: [25.0, 50.0, 75.0]
     target_rate:        50.0 # hz
-    target_speed:       20.0 # km/h
+    target_speed:       50.0 # km/h
 
-    start_on_corridor:  false
+    start_on_corridor:  true
+
+    mw_ew: "west"

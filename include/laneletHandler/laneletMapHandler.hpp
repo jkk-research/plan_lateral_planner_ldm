@@ -38,6 +38,7 @@ private:
     TrajectoryPoints       pathPoints;
     lanelet::ConstLanelets roadLanelets;
 
+    geometry_msgs::msg::TransformStamped gpsTransform;
     geometry_msgs::msg::PoseStamped      currentGPSMsg;
     visualization_msgs::msg::MarkerArray markerArray;
     
@@ -46,11 +47,13 @@ private:
     std::string gps_topic;
     std::string lanelet_frame;
     std::string ego_frame;
+    std::string gps_frame;
     bool        visualize_path;
     int         lastStartPointIdx;
     float       nearestNeighborThreshold; // in meters
     float       gps_yaw_offset;
     float       nodePtDistances[3];
+    float       start_id, end_id;
 
     PolynomialSubfunctions polynomialSubfunctions;
     CoordinateTransforms   coordinateTransforms;

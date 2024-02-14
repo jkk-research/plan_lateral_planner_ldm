@@ -33,25 +33,47 @@ bool LaneletHandler::init()
     this->declare_parameter<std::string>        ("lanelet2_path",      "");
     this->declare_parameter<std::string>        ("lanelet_frame",      "");
     this->declare_parameter<std::string>        ("ego_frame",          "");
+    this->declare_parameter<std::string>        ("gps_frame",          "");
     this->declare_parameter<std::string>        ("gps_topic",          "");
     this->declare_parameter<bool>               ("visualize",          false);
     this->declare_parameter<float>              ("target_rate",        10.0f);
     this->declare_parameter<float>              ("gps_yaw_offset",     0.0f);
     this->declare_parameter<std::vector<double>>("nodePointDistances", std::vector<double>{});
+    this->declare_parameter<std::string>        ("mw_ew",              "east");
 
     // get parameters
+    std::string mw_ew;
     this->get_parameter<std::string>        ("lanelet2_path",      lanelet2_path);
     this->get_parameter<std::string>        ("lanelet_frame",      lanelet_frame);
     this->get_parameter<std::string>        ("ego_frame",          ego_frame);
+    this->get_parameter<std::string>        ("gps_frame",          gps_frame);
     this->get_parameter<std::string>        ("gps_topic",          gps_topic);
     this->get_parameter<bool>               ("visualize",          visualize_path);
     this->get_parameter<float>              ("target_rate",        target_rate);
     this->get_parameter<float>              ("gps_yaw_offset",     gps_yaw_offset);
     this->get_parameter<std::vector<double>>("nodePointDistances", node_point_distances);
+    this->get_parameter<std::string>        ("mw_ew",              mw_ew);
+
+    // TODO: better way to handle planning
+    if (mw_ew == "east")
+    {
+        start_id = 27757;
+        end_id = 27749;
+    }
+    else
+    {
+        start_id = 27763;
+        end_id = 27759;
+    }
 
     for (uint8_t i = 0; i < 3; i++)
         nodePtDistances[i] = node_point_distances[i];
 
+    // get gps to lanelet transform
+    tf2_ros::Buffer tfBuffer(this->get_clock());
+    tf2_ros::TransformListener tfListener(tfBuffer);
+    gpsTransform = tfBuffer.lookupTransform(ego_frame, gps_frame, rclcpp::Time(0), rclcpp::Duration(3, 0));
+    
     // get lanelet file path
     std::string lanelet2_file_path;
     boost::filesystem::path path(lanelet2_path);
@@ -73,7 +95,7 @@ bool LaneletHandler::init()
     // overwrite local_x, local_y
     for (lanelet::Point3d point : map->pointLayer) {
       if (point.hasAttribute("local_x")) {
-        point.x() = point.attribute("local_x").asDouble().value();
+        point.x() = point.attribute("local_x").asDouble().value() - 1.0;
       }
       if (point.hasAttribute("local_y")) {
         point.y() = point.attribute("local_y").asDouble().value();
@@ -108,7 +130,16 @@ bool LaneletHandler::init()
     lanelet::routing::RoutingGraphPtr graph = lanelet::routing::RoutingGraph::build(*map, *trafficRules);
 
     // path planning
-    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(27757), map->laneletLayer.get(27749));
+    // MW
+    lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPath(map->laneletLayer.get(start_id), map->laneletLayer.get(end_id));
+
+    // TODO: remove this
+    // UNI
+    // lanelet::ConstLanelets pathLanelets;
+    // pathLanelets.push_back(map->laneletLayer.get(10649));
+
+    // lanelet::Optional<lanelet::routing::LaneletPath> trajectory_path = graph->shortestPathVia(map->laneletLayer.get(13235), pathLanelets, map->laneletLayer.get(13235));
+
 
     // init subscribers
     sub_gps_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(gps_topic, 1, std::bind(&LaneletHandler::gpsCallback, this, std::placeholders::_1));
@@ -192,18 +223,23 @@ bool LaneletHandler::init()
 
 void LaneletHandler::gpsCallback(const std::shared_ptr<const geometry_msgs::msg::PoseStamped>& gps_msg_)
 {
-    tf2::Quaternion q;
-    tf2::fromMsg(gps_msg_->pose.orientation, q);
-    
-    tf2::Quaternion q_rotation;
-    q_rotation.setRPY(0, 0, gps_yaw_offset);
-
-    tf2::Quaternion q_rotated = q_rotation * q;
-    q_rotated.normalize();
-
     geometry_msgs::msg::PoseStamped pose;
     pose = *gps_msg_;
-    pose.pose.orientation = tf2::toMsg(q_rotated);
+
+    if (gps_yaw_offset != 0.0f)
+    {
+        tf2::Quaternion q;
+        tf2::fromMsg(gps_msg_->pose.orientation, q);
+        
+        tf2::Quaternion q_rotation;
+        q_rotation.setRPY(0, 0, gps_yaw_offset);
+
+        tf2::Quaternion q_rotated = q_rotation * q;
+        q_rotated.normalize();
+        pose.pose.orientation = tf2::toMsg(q_rotated);
+    }
+
+    tf2::doTransform(pose, pose, gpsTransform);
     
     currentGPSMsg = pose;
 }
