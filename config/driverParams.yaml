@@ -12,4 +12,5 @@
 
     start_on_corridor:  true
 
-    mw_ew: "west"
+    mw_ew:        "east"
+    reverse_path: false

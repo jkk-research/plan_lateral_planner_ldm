@@ -40,6 +40,7 @@ bool LaneletHandler::init()
     this->declare_parameter<float>              ("gps_yaw_offset",     0.0f);
     this->declare_parameter<std::vector<double>>("nodePointDistances", std::vector<double>{});
     this->declare_parameter<std::string>        ("mw_ew",              "east");
+    this->declare_parameter<bool>               ("reverse_path",       reverse_path);
 
     // get parameters
     std::string mw_ew;
@@ -53,6 +54,7 @@ bool LaneletHandler::init()
     this->get_parameter<float>              ("gps_yaw_offset",     gps_yaw_offset);
     this->get_parameter<std::vector<double>>("nodePointDistances", node_point_distances);
     this->get_parameter<std::string>        ("mw_ew",              mw_ew);
+    this->get_parameter<bool>               ("reverse_path",       reverse_path);
 
     // TODO: better way to handle planning
     if (mw_ew == "east")
@@ -95,7 +97,7 @@ bool LaneletHandler::init()
     // overwrite local_x, local_y
     for (lanelet::Point3d point : map->pointLayer) {
       if (point.hasAttribute("local_x")) {
-        point.x() = point.attribute("local_x").asDouble().value() - 1.0;
+        point.x() = point.attribute("local_x").asDouble().value();
       }
       if (point.hasAttribute("local_y")) {
         point.y() = point.attribute("local_y").asDouble().value();
@@ -124,7 +126,7 @@ bool LaneletHandler::init()
 
     // isolate road lanes
     roadLanelets = lanelet::utils::query::laneletLayer(map);
-    
+
     // Initialize path planning
     lanelet::traffic_rules::TrafficRulesPtr trafficRules{lanelet::traffic_rules::TrafficRulesFactory::instance().create(lanelet::Locations::Germany, lanelet::Participants::Vehicle)};
     lanelet::routing::RoutingGraphPtr graph = lanelet::routing::RoutingGraph::build(*map, *trafficRules);
@@ -202,6 +204,10 @@ bool LaneletHandler::init()
             laneletRightMarker.points.push_back(geoPt);
         }
     }
+
+    if (reverse_path)
+        std::reverse(pathPoints.begin(), pathPoints.end());
+    
     markerArray.markers.push_back(laneletCenterMarker);
     markerArray.markers.push_back(laneletLeftMarker);
     markerArray.markers.push_back(laneletRightMarker);
@@ -240,6 +246,8 @@ void LaneletHandler::gpsCallback(const std::shared_ptr<const geometry_msgs::msg:
     }
 
     tf2::doTransform(pose, pose, gpsTransform);
+
+    pose.header = gps_msg_->header;
     
     currentGPSMsg = pose;
 }

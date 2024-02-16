@@ -49,6 +49,7 @@ private:
     std::string ego_frame;
     std::string gps_frame;
     bool        visualize_path;
+    bool        reverse_path;
     int         lastStartPointIdx;
     float       nearestNeighborThreshold; // in meters
     float       gps_yaw_offset;
