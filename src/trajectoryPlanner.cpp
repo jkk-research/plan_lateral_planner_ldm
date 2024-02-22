@@ -139,7 +139,7 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
     trajectory.header.frame_id = lanelet_frame;
 
     int coeffsIdx = 0;
-    float x = segmentCoeffs.sectionBorderStart[0];
+    float x = std::min<float>(segmentCoeffs.sectionBorderStart[0], -2.0f);
     for (; x < params.P_nodePointDistances[2]; x++)
     {
         PolynomialCoeffs coeffs = segmentCoeffs.segmentCoeffs[coeffsIdx];
