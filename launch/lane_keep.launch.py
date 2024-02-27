@@ -12,27 +12,32 @@ import os
 
 def generate_launch_description():
     # ARGS
-    lanelet_frame = DeclareLaunchArgument(
+    lanelet_frame_arg = DeclareLaunchArgument(
         'lanelet_frame',
         default_value='map_zala_0'
     )
 
-    gps_topic = DeclareLaunchArgument(
+    gps_topic_arg = DeclareLaunchArgument(
         'gps_topic',
         default_value='/lexus3/gps/duro/current_pose'
     )
 
-    gps_yaw_offset = DeclareLaunchArgument(
+    gps_yaw_offset_arg = DeclareLaunchArgument(
         'gps_yaw_offset',
         default_value='0.024'
     )
 
-    visualize = DeclareLaunchArgument(
+    global_path_arg = DeclareLaunchArgument(
+        'global_path',
+        default_value='true'
+    )
+
+    visualize_arg = DeclareLaunchArgument(
         'visualize',
         default_value='true'
     )
 
-    lanelet2_path = DeclareLaunchArgument(
+    lanelet2_path_arg = DeclareLaunchArgument(
         'lanelet2_path',
         default_value=os.path.join(get_package_share_directory('lane_keep_system'), 'laneletMaps', 'mw_local.osm'),
         description='Path to the lanelet2 map file'
@@ -70,6 +75,7 @@ def generate_launch_description():
         parameters=[
             # driverParams
             {'lanelet_frame': LaunchConfiguration('lanelet_frame')},
+            {'global_path':   LaunchConfiguration('global_path')},
             {'visualize':     LaunchConfiguration('visualize')},
             driverModel_params
         ]
@@ -192,11 +198,13 @@ def generate_launch_description():
             actions=[
                 PushRosNamespace('ldm'),
 
-                lanelet_frame,
-                gps_topic,
-                gps_yaw_offset,
-                visualize,
-                lanelet2_path,
+                lanelet_frame_arg,
+                gps_topic_arg,
+                gps_yaw_offset_arg,
+                global_path_arg,
+                visualize_arg,
+                lanelet2_path_arg,
+
                 lanelet_map_handler,
                 trajectory_planner,
                 # mpc_steering_path,

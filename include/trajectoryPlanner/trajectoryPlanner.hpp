@@ -5,14 +5,17 @@
 
 #include "linearDriverModel/emg_linearDriverModel_interfaces.hpp"
 #include "linearDriverModel/emg_linearDriverModel.hpp"
+#include "linearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
 #include "utilities/rosUtilities.hpp"
 
-#include <lane_keep_system/msg/scenario.hpp>
+#include "tf2_ros/buffer.h"
+#include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <lane_keep_system/msg/scenario.hpp>
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <autoware_auto_planning_msgs/msg/trajectory.hpp>
@@ -42,8 +45,6 @@ private:
     rclcpp::Subscription<autoware_auto_vehicle_msgs::msg::VelocityReport>::SharedPtr sub_velocity_;
     rclcpp::Subscription<pacmod3_msgs::msg::SystemRptFloat>::SharedPtr               sub_accel;
     
-
-    
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr            pub_visualization_;
     rclcpp::Publisher<autoware_auto_planning_msgs::msg::Trajectory>::SharedPtr    pub_trajectory_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr                         pub_odometry_;
@@ -53,20 +54,23 @@ private:
     rclcpp::Publisher<lane_keep_system::msg::Trajectory>::SharedPtr               pub_debug_trajectory_;
     
     rclcpp::TimerBase::SharedPtr timer_;
-
+    geometry_msgs::msg::TransformStamped gpsTransform;
     visualization_msgs::msg::MarkerArray         markerArray;
     autoware_auto_planning_msgs::msg::Trajectory trajectory;
     lane_keep_system::msg::Scenario              currentScenario;
 
+    CoordinateTransforms   coordinateTransforms;
+
     LDMParamIn        params;
     LinearDriverModel ldm;
     std::string       lanelet_frame;
-    std::string       gps_topic;
-    float             gps_yaw_offset;
-    bool              visualize_trajectory;
-    bool              start_on_corridor;
     float             targetSpeed;
     float             currentSpeed;
+    float             currentVelocity;
+    float             currentAcceleration;
+    bool              visualize_trajectory;
+    bool              start_on_corridor;
+    bool              global_path;
 
     ROSUtilities rosUtilities;
 
@@ -79,16 +83,13 @@ private:
     void velocity_callback(const std::shared_ptr<const autoware_auto_vehicle_msgs::msg::VelocityReport>& msg_);
     // acceleration callback
     void accel_callback(const std::shared_ptr<const pacmod3_msgs::msg::SystemRptFloat>& msg_);
-
-    float currentVelocity;
-    float currentAcceleration;
     
     // Get the scenario
     ScenarioPolynomials getScenario();
     // Visualize output
     void visualizeOutput(const TrajectoryOutput& trajectoryOutput);
     // Publish the output
-    void publishOutput(const TrajectoryOutput& coeffs);
+    void publishOutput(const TrajectoryOutput& coeffs, const Pose2D& egoPose);
 };
 
 #endif // TRAJECTORY_CONTROLLER_HPP_

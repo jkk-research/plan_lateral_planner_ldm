@@ -23,8 +23,7 @@ bool TrajectoryPlanner::init()
     this->declare_parameter<float>              ("target_speed",       50.0f);
     this->declare_parameter<bool>               ("start_on_corridor",  true);
     this->declare_parameter<std::string>        ("lanelet_frame",      "");
-    this->declare_parameter<std::string>        ("gps_topic",          "");
-    this->declare_parameter<float>              ("gps_yaw_offset",     0.0f);
+    this->declare_parameter<bool>               ("global_path",        false);
     this->declare_parameter<bool>               ("visualize",          true);
 
     this->get_parameter<std::vector<double>>("P",                  driverParams);
@@ -34,8 +33,7 @@ bool TrajectoryPlanner::init()
     this->get_parameter<float>              ("target_speed",       targetSpeed);
     this->get_parameter<bool>               ("start_on_corridor",  start_on_corridor);
     this->get_parameter<std::string>        ("lanelet_frame",      lanelet_frame);
-    this->get_parameter<std::string>        ("gps_topic",          gps_topic);
-    this->get_parameter<float>              ("gps_yaw_offset",     gps_yaw_offset);
+    this->get_parameter<bool>               ("global_path",        global_path);
     this->get_parameter<bool>               ("visualize",          visualize_trajectory);
 
     for (uint8_t i = 0; i < 21; i++)
@@ -129,7 +127,7 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
     pub_visualization_->publish(markerArray);
 }
 
-void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
+void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput, const Pose2D& egoPose)
 {
     PolynomialCoeffsThreeSegments segmentCoeffs = trajectoryOutput.segmentCoeffs;
 
@@ -146,7 +144,18 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
 
         autoware_auto_planning_msgs::msg::TrajectoryPoint tp;
         // position
-        tp.pose.position = rosUtilities.getROSPointOnPoly(x, coeffs);
+        geometry_msgs::msg::Point pt = rosUtilities.getROSPointOnPoly(x, coeffs);
+
+        if (global_path)
+        {
+            Points2D p_local = rosUtilities.convertPoint_ROS2CPP(pt);
+            Points2D p_global;
+            coordinateTransforms.reverseTransform2D(p_local, egoPose, p_global);
+
+            pt = rosUtilities.convertPoint_CPP2ROS(p_global);
+        }
+
+        tp.pose.position = pt;
 
         // orientation
         float yaw = atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
@@ -266,7 +275,7 @@ bool TrajectoryPlanner::runTrajectory()
     );
     
     // publish output to MPC
-    publishOutput(trajectoryOutput);
+    publishOutput(trajectoryOutput, egoPose);
 
     // visualization
     if (visualize_trajectory)

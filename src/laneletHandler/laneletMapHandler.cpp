@@ -71,7 +71,7 @@ bool LaneletHandler::init()
     for (uint8_t i = 0; i < 3; i++)
         nodePtDistances[i] = node_point_distances[i];
 
-    // get gps to lanelet transform
+    // get gps to ego transform
     tf2_ros::Buffer tfBuffer(this->get_clock());
     tf2_ros::TransformListener tfListener(tfBuffer);
     gpsTransform = tfBuffer.lookupTransform(ego_frame, gps_frame, rclcpp::Time(0), rclcpp::Duration(3, 0));
