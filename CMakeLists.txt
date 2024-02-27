@@ -78,6 +78,10 @@ add_executable(trajectory_planner src/trajectoryPlanner.cpp ${trajectory_planner
 ament_target_dependencies(trajectory_planner ${dependencies})
 target_link_libraries(trajectory_planner "${cpp_typesupport_target}")
 
+add_executable(waypoint_converter src/utilities/waypoint_converter.cpp)
+ament_target_dependencies(waypoint_converter rclcpp geometry_msgs autoware_auto_planning_msgs)
+target_link_libraries(waypoint_converter "${cpp_typesupport_target}")
+
 # add_executable(mpc_steering_path src/utilities/mpc_steering_path.cpp ${trajectory_planner_sources})
 # ament_target_dependencies(mpc_steering_path ${dependencies})
 
@@ -85,6 +89,7 @@ target_link_libraries(trajectory_planner "${cpp_typesupport_target}")
 install(TARGETS
   lanelet_map_handler
   trajectory_planner
+  waypoint_converter
   # mpc_steering_path
   DESTINATION lib/${PROJECT_NAME})
 
