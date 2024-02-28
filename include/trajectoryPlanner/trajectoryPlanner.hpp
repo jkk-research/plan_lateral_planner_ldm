@@ -89,7 +89,7 @@ private:
     // Visualize output
     void visualizeOutput(const TrajectoryOutput& trajectoryOutput);
     // Publish the output
-    void publishOutput(const TrajectoryOutput& coeffs, const Pose2D& egoPose);
+    void publishOutput(const TrajectoryOutput& coeffs);
 };
 
 #endif // TRAJECTORY_CONTROLLER_HPP_

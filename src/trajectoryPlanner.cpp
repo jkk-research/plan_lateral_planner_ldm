@@ -127,7 +127,7 @@ void TrajectoryPlanner::visualizeOutput(const TrajectoryOutput& trajectoryOutput
     pub_visualization_->publish(markerArray);
 }
 
-void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput, const Pose2D& egoPose)
+void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
 {
     PolynomialCoeffsThreeSegments segmentCoeffs = trajectoryOutput.segmentCoeffs;
 
@@ -135,6 +135,8 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput, 
     autoware_auto_planning_msgs::msg::Trajectory trajectory;
     trajectory.header.stamp = rclcpp::Clock().now();
     trajectory.header.frame_id = lanelet_frame;
+
+    Pose2D egoPose = rosUtilities.getEgoPose(currentScenario.gps);
 
     int coeffsIdx = 0;
     float x = std::min<float>(segmentCoeffs.sectionBorderStart[0], -2.0f);
@@ -216,7 +218,14 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput, 
     odometry.header.stamp = rclcpp::Clock().now();
     odometry.header.frame_id = lanelet_frame;
     odometry.child_frame_id  = lanelet_frame;
-    odometry.pose.pose.orientation.w = 1;
+
+    if (global_path)
+        // global coordinates
+        odometry.pose.pose = currentScenario.gps.pose;
+    else
+        // local coordinates (0,0,0)
+        odometry.pose.pose.orientation.w = 1;
+    
     odometry.twist.twist.linear.x = currentVelocity;
     pub_odometry_->publish(odometry);
 
@@ -275,7 +284,7 @@ bool TrajectoryPlanner::runTrajectory()
     );
     
     // publish output to MPC
-    publishOutput(trajectoryOutput, egoPose);
+    publishOutput(trajectoryOutput);
 
     // visualization
     if (visualize_trajectory)
