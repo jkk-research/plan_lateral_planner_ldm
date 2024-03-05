@@ -160,7 +160,10 @@ void TrajectoryPlanner::publishOutput(const TrajectoryOutput& trajectoryOutput)
         tp.pose.position = pt;
 
         // orientation
-        float yaw = egoPose.Pose2DTheta + atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
+        float yaw = atan(coeffs.c1 + 2 * coeffs.c2 * x + 3 * coeffs.c3 * pow(x,2));
+        if (global_path)
+            yaw += egoPose.Pose2DTheta;
+        
         tf2::Quaternion quat_tf;
         quat_tf.setRPY(0, 0, yaw);
         quat_tf = quat_tf.normalize();
