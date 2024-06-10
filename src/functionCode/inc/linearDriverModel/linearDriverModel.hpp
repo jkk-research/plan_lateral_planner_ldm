@@ -11,44 +11,28 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_HPP_INCLUDED
+#define LINEARDRIVERMODEL_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
-#include "vfc/container/vfc_fixedvector.hpp"
-#include "vfc/core/vfc_functionattributes.hpp"
-#include "vfc/container/vfc_carray.hpp"
+#include "linearDriverModel_interfaces.hpp"
+#include "linearDriverModel_controlLogic.hpp"
+#include "../linearDriverModelDriverModel/linearDriverModel_driverModel.hpp"
+#include "../linearDriverModelPlanner/linearDriverModel_segmentPlanner.hpp"
+#include "../linearDriverModelUtilities/linearDriverModel_coordinateTransforms.hpp"
 
-#include "emg_linearDriverModel_interfaces.hpp"
-#include "emg_linearDriverModel_controlLogic.hpp"
-#include "LinearDriverModelDriverModel/emg_linearDriverModel_driverModel.hpp"
-#include "LinearDriverModelPlanner/emg_linearDriverModel_segmentPlanner.hpp"
-#include "LinearDriverModelUtilities/emg_linearDriverModel_coordinateTransforms.hpp"
-
-// >>>IntecrioMeasurement<<<
-#if !defined _MSC_VER && !defined(__GNUC__)
-extern "C"
-{
-#endif
-#include "vmc/runnables/ES910Wrapper/linearDriverModel.h"
-#if !defined _MSC_VER && !defined(__GNUC__)
-}
-#endif
-
-namespace Rb
-{
-namespace Vmc
-{
+#include <cstring>
 
 class LinearDriverModel  // cover class of DriverTrajectoryPlanner
 {
 public:
-   PolynomialCoeffsTwoSegments runCoeffsLite(
-      const CorridorInfoCoefficients&, const Pose2D&, const LDMParamIn&);
+   TrajectoryOutput runCoeffsLite(
+      const ScenarioPolynomials& corridorCoefficients, const Pose2D& egoPoseGlobal, const LDMParamIn& parameters);
+
+   void initCoeffs(const ScenarioPolynomials& corridorCoefficients);
 
    // Control Logic
    ControlLogic controlLogic{};
-
+   
    // Driver Model
    DriverModel driverModel{};
 
@@ -64,19 +48,15 @@ private:
    CoordinateTransforms coordinateTransforms{};
 
    // Curve fitting - segment planner
-   SegmentPlanner    segmentPlanner{};
-   SegmentParams        segmentParams{};
-   SegmentParams        segmentParamsEgoFrame{};
+   SegmentPlanner segmentPlanner{};
+   SegmentParams  segmentParams{};
+   SegmentParams  segmentParamsEgoFrame{};
 
    // Results of the curve fitting and return of coefficients towards TRC
    PolynomialCoeffsThreeSegments trajectoryCoeffsThreeSegments{};
-   PolynomialCoeffsTwoSegments coefficientsToController{};
 
    // internal variables
    bool                     firstCycle{true};
 };
 
-}  // namespace Emg
-}  // namespace Dc
-
-#endif  // DC_EMG_LINEARDRIVERMODEL_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_HPP_INCLUDED

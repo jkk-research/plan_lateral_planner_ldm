@@ -11,16 +11,13 @@
 ///  @file
 ///=============================================================================
 
-#include "../emg_linearDriverModel.hpp"
+#include "../../inc/linearDriverModelUtilities/linearDriverModel_polynomialSubfunctions.hpp"
 
-namespace Rb
-{
-namespace Vmc
-{
+
 void PolynomialSubfunctions::gaussElimination(
-   vfc::float32_t (&gaussMatrix)[4][5], PolynomialCoeffs& polynomialCoeffs)
+   float (&gaussMatrix)[4][5], PolynomialCoeffs& polynomialCoeffs)
 {
-   vfc::int8_t singular = forwardElimination(gaussMatrix);
+   int8_t singular = forwardElimination(gaussMatrix);
 
    if (singular != -1)
    {
@@ -45,7 +42,7 @@ PolynomialCoeffs PolynomialSubfunctions::fitThirdOrderPolynomial(const Trajector
    detM = calculateDeterminant(M);
    calculateBvector(trajectory);
 
-   for (int i = 0; i < 4; i++)
+   for (uint8_t i = 0; i < 4; i++)
    {
       calculateModifiedMMatrix(i);
       a[i] = calculateDeterminant(M_) / detM;
@@ -59,16 +56,16 @@ PolynomialCoeffs PolynomialSubfunctions::fitThirdOrderPolynomial(const Trajector
    return polyCoeffs;
 }
 
-vfc::int8_t PolynomialSubfunctions::forwardElimination(vfc::float32_t (&gaussMatrix)[4][5])
+uint8_t PolynomialSubfunctions::forwardElimination(float (&gaussMatrix)[4][5])
 {
    for (uint8_t k{0U}; k < 4U; k++)
    {
-      uint8_t        i_max = k;
-      vfc::float32_t v_max = gaussMatrix[i_max][k];
+      uint8_t i_max = k;
+      float v_max = gaussMatrix[i_max][k];
 
       for (uint8_t i{k + 1U}; i < 4U; i++)
       {
-         if (vfc::abs(gaussMatrix[i][k]) > v_max)
+         if (abs(gaussMatrix[i][k]) > v_max)
          {
             v_max = gaussMatrix[i][k];
             i_max = i;
@@ -84,7 +81,7 @@ vfc::int8_t PolynomialSubfunctions::forwardElimination(vfc::float32_t (&gaussMat
       {
          for (uint8_t i{0U}; i <= 4U; i++)
          {
-            vfc::float32_t temp   = gaussMatrix[k][i];
+            float temp   = gaussMatrix[k][i];
             gaussMatrix[k][i]     = gaussMatrix[i_max][i];
             gaussMatrix[i_max][i] = temp;
          }
@@ -92,7 +89,7 @@ vfc::int8_t PolynomialSubfunctions::forwardElimination(vfc::float32_t (&gaussMat
 
       for (uint8_t i{k + 1U}; i < 4U; i++)
       {
-         vfc::float32_t f = vfc::divide(gaussMatrix[i][k], gaussMatrix[k][k]);
+         float f = gaussMatrix[i][k] / gaussMatrix[k][k];
          for (uint8_t j{k + 1U}; j <= 4U; j++)
          {
             gaussMatrix[i][j] -= gaussMatrix[k][j] * f;
@@ -103,7 +100,7 @@ vfc::int8_t PolynomialSubfunctions::forwardElimination(vfc::float32_t (&gaussMat
    return -1;
 }
 
-void PolynomialSubfunctions::backSubstitute(vfc::float32_t (&gaussMatrix)[4][5])
+void PolynomialSubfunctions::backSubstitute(float (&gaussMatrix)[4][5])
 {
    for (int8_t i{3}; i >= 0; i--)
    {
@@ -112,19 +109,19 @@ void PolynomialSubfunctions::backSubstitute(vfc::float32_t (&gaussMatrix)[4][5])
       {
          gaussResult[i] -= gaussMatrix[i][j] * gaussResult[j];
       }
-      gaussResult[i] = vfc::divide(gaussResult[i], gaussMatrix[i][i]);
+      gaussResult[i] = gaussResult[i] / gaussMatrix[i][i];
    }
 }
 
 void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory)
 {
-   vfc::float32_t sum = 0.0f;
+   double sum = 0.0f;
    for (uint8_t i = 0; i < 4; i++)
    {
       sum = 0;
-      for (uint16_t j = 0; j < trajectory.trajectoryLength; j++)
+      for (uint16_t j = 0; j < trajectory.size(); j++)
       {
-         sum = sum + vfc::pow(trajectory.trajectoryPoints[j].PointsX.value(), i) * trajectory.trajectoryPoints[j].PointsY.value();
+         sum = sum + pow(trajectory[j].x, i) * trajectory[j].y;
       }
       b[i] = sum;
    }
@@ -132,13 +129,13 @@ void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory
 
 void PolynomialSubfunctions::calculateMmatrix(const TrajectoryPoints& trajectory)
 {
-   vfc::float32_t sum = 0.0f;
-   for (uint8_t i = 0; i < 9; i++)
+   double sum = 0.0f;
+   for (uint8_t i = 0; i < 7; i++)
    {
       sum = 0;
-      for (uint16_t j = 0; j < trajectory.trajectoryLength; j++)
+      for (uint16_t j = 0; j < trajectory.size(); j++)
       {
-         sum = sum + vfc::pow(trajectory.trajectoryPoints[j].PointsX.value(), i);
+         sum = sum + pow(trajectory[j].x, i);
       }
       v[i] = sum;
    }
@@ -151,12 +148,12 @@ void PolynomialSubfunctions::calculateMmatrix(const TrajectoryPoints& trajectory
    }
 }
 
-vfc::float32_t PolynomialSubfunctions::calculateDeterminant(vfc::float32_t Mx[4][4])
+double PolynomialSubfunctions::calculateDeterminant(double Mx[4][4])
 {
-   vfc::float32_t D = 0;
+   double D = 0;
    for (uint8_t i = 0; i < 4; i++)
    {
-      vfc::float32_t dM = calculateSubDeterminant(Mx, i);
+      double dM = calculateSubDeterminant(Mx, i);
       if (i == 0 || i == 2)
       {
          D = D + Mx[0][i] * dM;
@@ -169,10 +166,10 @@ vfc::float32_t PolynomialSubfunctions::calculateDeterminant(vfc::float32_t Mx[4]
    return D;
 }
 
-vfc::float32_t PolynomialSubfunctions::calculateSubDeterminant(vfc::float32_t Mx[4][4], vfc::uint8_t i)
+double PolynomialSubfunctions::calculateSubDeterminant(double Mx[4][4], uint8_t i)
 {
-   vfc::float32_t m[3][3];
-   vfc::uint8_t    columns[3];
+   double m[3][3];
+   uint8_t columns[3];
    switch (i)
    {
       case 0:
@@ -209,7 +206,7 @@ vfc::float32_t PolynomialSubfunctions::calculateSubDeterminant(vfc::float32_t Mx
           + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 }
 
-void PolynomialSubfunctions::calculateModifiedMMatrix(vfc::uint8_t k)
+void PolynomialSubfunctions::calculateModifiedMMatrix(uint8_t k)
 {
    for (uint8_t i = 0; i < 4; i++)
    {
@@ -226,6 +223,3 @@ void PolynomialSubfunctions::calculateModifiedMMatrix(vfc::uint8_t k)
       }
    }
 }
-
-}  // namespace Emg
-}  // namespace Dc

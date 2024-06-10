@@ -11,33 +11,20 @@
 ///  @file
 ///=============================================================================
 
-#ifndef DC_EMG_LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
-#define DC_EMG_LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
+#ifndef LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
+#define LINEARDRIVERMODEL_COORDINATETRANSFORMS_HPP_INCLUDED
 
-#include "vfc/core/vfc_types.hpp"
+#include "../linearDriverModel/linearDriverModel_interfaces.hpp"
 
-#include "../emg_linearDriverModel_interfaces.hpp"
-
-
-namespace Rb
-{
-namespace Vmc
-{
 
 class CoordinateTransforms
 {
 public:
    void transform2D(const Points2D&, const Pose2D&, Points2D&);
-   void transform2D(const Points2D [300], const Pose2D&, const vfc::uint16_t, Points2D [300]);
+   void transform2D(const TrajectoryPoints, const Pose2D&, TrajectoryPoints);
    void reverseTransform2D(const Points2D&, const Pose2D&, Points2D&);
-   void reverseTransform2D(const Points2D [300], const Pose2D&, const vfc::uint16_t, Points2D [300]);
-   void angleTransform2D(const Pose2D&, const Pose2D&, Pose2D&);
-   void angleTransform2D(
-      const CorridorInfo&, const Pose2D&, const vfc::uint16_t, CorridorInfo&);
+   void reverseTransform2D(const TrajectoryPoints, const Pose2D&, TrajectoryPoints);
    void transformNodePoints(const NodePoints&, const Pose2D&, const Pose2D&, NodePoints&);
 };
 
-}  // namespace Emg
-}  // namespace Dc
-
-#endif  // DC_EMG_LINEARDRIVERMODEL_COORDINATETRANSFORM_HPP_INCLUDED
+#endif  // LINEARDRIVERMODEL_COORDINATETRANSFORM_HPP_INCLUDED
