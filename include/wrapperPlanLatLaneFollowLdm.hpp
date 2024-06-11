@@ -32,9 +32,8 @@ private:
     ScenarioPolynomials     m_scenarioPolynomials;
 
     // support function to convert standardized planner input to subordinate types
-    void fitPolynomialOnWaypoints(const PlannerInput & input);
     void generateEgoPose(const PlannerInput & input);
-    vois calculateNodePoints(const PlannerInput & input);
+    void calculateNodePoints(const PlannerInput & input);
 
     PolynomialSubfunctions m_polynomialRegressor;
 };

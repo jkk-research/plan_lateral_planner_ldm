@@ -95,7 +95,6 @@ void ControlLogic::corridorValidityCalc(
    // {
    //    validity = true;
    // }
-   validity = true;
 }
 
 void ControlLogic::initalizedCalc(const bool validity, const bool firstCycle)
@@ -134,5 +133,5 @@ bool ControlLogic::calcValidity(
    initalizedCalc(validity, firstCycle);
    replanCalc(parameters);
 
-   return ((replan || !initialized) && validity);
+   return ((replan && validity) || !initialized);
 }
