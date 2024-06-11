@@ -21,7 +21,10 @@ set(functional_source
    ${CMAKE_CURRENT_SOURCE_DIR}/src/functionCode/src/linearDriverModelUtilities/linearDriverModel_polynomialSubfunctions.cpp
 )
 
-add_executable(plan_lat_lane_follow_ldm src/wrapper.cpp ${functional_source})
+set(utils_source
+${CMAKE_CURRENT_SOURCE_DIR}/../../crp_utils/geometryUtils/src/polynomialRegression.cpp)
+
+add_executable(plan_lat_lane_follow_ldm src/wrapperPlanLatLaneFollowLdm.cpp ${functional_source} ${utils_source})
 ament_target_dependencies(plan_lat_lane_follow_ldm rclcpp planner_base)
 
 install(TARGETS

@@ -8,6 +8,8 @@
 #include "../src/functionCode/inc/linearDriverModel/linearDriverModel_interfaces.hpp"
 #include "../src/functionCode/inc/linearDriverModelUtilities/linearDriverModel_coordinateTransforms.hpp"
 
+// utils
+#include "../../../crp_utils/geometryUtils/inc/polynomialRegression.hpp"
 
 namespace crp
 {
@@ -28,6 +30,13 @@ private:
     LDMParamIn              m_ldmParams;
     Pose2D                  m_egoPose;
     ScenarioPolynomials     m_scenarioPolynomials;
+
+    // support function to convert standardized planner input to subordinate types
+    void fitPolynomialOnWaypoints(const PlannerInput & input);
+    void generateEgoPose(const PlannerInput & input);
+    vois calculateNodePoints(const PlannerInput & input);
+
+    PolynomialSubfunctions m_polynomialRegressor;
 };
 
 } // namespace apl
