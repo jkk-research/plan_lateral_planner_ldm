@@ -31,32 +31,32 @@ public:
    void initCoeffs(const ScenarioPolynomials& corridorCoefficients);
 
    // Control Logic
-   ControlLogic controlLogic{};
+   ControlLogic m_controlLogic{};
    
    // Driver Model
-   DriverModel driverModel{};
+   DriverModel m_driverModel{};
 
    // internal input and output structs
-   NodePoints nodePoints{};
-   NodePoints nodePointsEgoFrame{};
-   Pose2D     egoPoseGlobalPlan{};
+   NodePoints m_nodePoints{};
+   NodePoints m_nodePointsEgoFrame{};
+   Pose2D     m_egoPoseGlobalPlan{};
    // Evaluation Points calculation for trajectory planner
    // Preprocess
 
 private:
    // Transforms
-   CoordinateTransforms coordinateTransforms{};
+   CoordinateTransforms m_coordinateTransforms{};
 
    // Curve fitting - segment planner
-   SegmentPlanner segmentPlanner{};
-   SegmentParams  segmentParams{};
-   SegmentParams  segmentParamsEgoFrame{};
+   SegmentPlanner m_segmentPlanner{};
+   SegmentParams  m_segmentParams{};
+   SegmentParams  m_segmentParamsEgoFrame{};
 
    // Results of the curve fitting and return of coefficients towards TRC
-   PolynomialCoeffsThreeSegments trajectoryCoeffsThreeSegments{};
+   PolynomialCoeffsThreeSegments m_trajectoryCoeffsThreeSegments{};
 
    // internal variables
-   bool                     firstCycle{true};
+   bool                     m_firstCycle{true};
 };
 
 #endif  // LINEARDRIVERMODEL_HPP_INCLUDED

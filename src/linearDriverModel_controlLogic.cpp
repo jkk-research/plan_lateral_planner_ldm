@@ -24,19 +24,21 @@ void ControlLogic::corridorValidityCalc(
    float previousMovMeanY{0.0f};
    float previousMovMeanTheta{0.0f};
    bool  invalidEgoPose{false};
-   validity = true;
+   m_validity = true;
 
    // checking GPS data validity
    // uploading the gps data array for further moving average calculation
-   if (egoPoseDatasX[3] == 0.0f && egoPoseDatasY[3] == 0.0f && egoPoseDatasTheta[3] == 0.0f)
+   if (m_egoPoseDatasX[3] == 0.0f && 
+      m_egoPoseDatasY[3] == 0.0f && 
+      m_egoPoseDatasTheta[3] == 0.0f)
    {
       for (uint8_t i{0}; i < 4; i++)
       {
-         if (egoPoseDatasX[i] == 0.0f)
+         if (m_egoPoseDatasX[i] == 0.0f)
          {
-            egoPoseDatasX[i]     = egoPoseGlobal.Pose2DCoordinates.x;
-            egoPoseDatasY[i]     = egoPoseGlobal.Pose2DCoordinates.y;
-            egoPoseDatasTheta[i] = egoPoseGlobal.Pose2DTheta;
+            m_egoPoseDatasX[i]     = egoPoseGlobal.Pose2DCoordinates.x;
+            m_egoPoseDatasY[i]     = egoPoseGlobal.Pose2DCoordinates.y;
+            m_egoPoseDatasTheta[i] = egoPoseGlobal.Pose2DTheta;
          }
       }
    }
@@ -48,21 +50,21 @@ void ControlLogic::corridorValidityCalc(
       previousMovMeanTheta = 0.0f;
       for (uint8_t i{0}; i < 4; i++)
       {
-         previousMovMeanX     += egoPoseDatasX[i];
-         previousMovMeanY     += egoPoseDatasY[i];
-         previousMovMeanTheta += egoPoseDatasTheta[i];
+         previousMovMeanX     += m_egoPoseDatasX[i];
+         previousMovMeanY     += m_egoPoseDatasY[i];
+         previousMovMeanTheta += m_egoPoseDatasTheta[i];
 
          if (i != 3)
          {
-            egoPoseDatasX[i]     = egoPoseDatasX[i + 1];
-            egoPoseDatasY[i]     = egoPoseDatasY[i + 1];
-            egoPoseDatasTheta[i] = egoPoseDatasTheta[i + 1];
+            m_egoPoseDatasX[i]     = m_egoPoseDatasX[i + 1];
+            m_egoPoseDatasY[i]     = m_egoPoseDatasY[i + 1];
+            m_egoPoseDatasTheta[i] = m_egoPoseDatasTheta[i + 1];
          }
          else
          {
-            egoPoseDatasX[i]     = egoPoseGlobal.Pose2DCoordinates.x;
-            egoPoseDatasY[i]     = egoPoseGlobal.Pose2DCoordinates.y;
-            egoPoseDatasTheta[i] = egoPoseGlobal.Pose2DTheta;
+            m_egoPoseDatasX[i]     = egoPoseGlobal.Pose2DCoordinates.x;
+            m_egoPoseDatasY[i]     = egoPoseGlobal.Pose2DCoordinates.y;
+            m_egoPoseDatasTheta[i] = egoPoseGlobal.Pose2DTheta;
          }
       }
       previousMovMeanX     = previousMovMeanX     / 4.0f;
@@ -70,19 +72,20 @@ void ControlLogic::corridorValidityCalc(
       previousMovMeanTheta = previousMovMeanTheta / 4.0f;
       for (uint8_t i{0}; i < 4; i++)
       {
-         movMeanX += egoPoseDatasX[i];
-         movMeanY += egoPoseDatasY[i];
-         movMeanTheta += egoPoseDatasTheta[i];
+         movMeanX += m_egoPoseDatasX[i];
+         movMeanY += m_egoPoseDatasY[i];
+         movMeanTheta += m_egoPoseDatasTheta[i];
       }
       movMeanX     = movMeanX     / 4.0f;
       movMeanY     = movMeanY     / 4.0f;
       movMeanTheta = movMeanTheta / 4.0f;
 
       if (
-         abs(movMeanX - previousMovMeanX) > 4 || abs(movMeanY - previousMovMeanY) > 4
-         || abs(movMeanTheta - previousMovMeanTheta) > 0.3)
+         abs(movMeanX - previousMovMeanX) > 4 || 
+         abs(movMeanY - previousMovMeanY) > 4 || 
+         abs(movMeanTheta - previousMovMeanTheta) > 0.3)
       {
-         validity = false;
+         m_validity = false;
          return;
       }
    }
@@ -101,25 +104,25 @@ void ControlLogic::initalizedCalc(const bool validity, const bool firstCycle)
 {
    if (!firstCycle && validity == true)
    {
-      initialized = true;
+      m_initialized = true;
    }
    else
    {
-      initialized = false;
+      m_initialized = false;
    }
 }
 
 void ControlLogic::replanCalc(const LDMParamIn& parameters)
 {
-   replanCount += 1;
-   if (replanCount < parameters.replanCycle)
+   m_replanCount += 1;
+   if (m_replanCount < parameters.replanCycle)
    {
-      replan = false;
+      m_replan = false;
    }
    else
    {
-      replan      = true;
-      replanCount = 0U;
+      m_replan      = true;
+      m_replanCount = 0U;
    }
 }
 
@@ -130,8 +133,8 @@ bool ControlLogic::calcValidity(
    const bool                      firstCycle)
 {
    corridorValidityCalc(corridorCoefficients, egoPoseGlobal);
-   initalizedCalc(validity, firstCycle);
+   initalizedCalc(m_validity, firstCycle);
    replanCalc(parameters);
 
-   return ((replan && validity) || !initialized);
+   return ((m_replan && m_validity) || !m_initialized);
 }

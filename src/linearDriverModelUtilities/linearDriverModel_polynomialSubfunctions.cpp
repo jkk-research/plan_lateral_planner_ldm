@@ -30,30 +30,30 @@ void PolynomialSubfunctions::gaussElimination(
 
    backSubstitute(gaussMatrix);
 
-   polynomialCoeffs.c0 = gaussResult[0];
-   polynomialCoeffs.c1 = gaussResult[1];
-   polynomialCoeffs.c2 = gaussResult[2];
-   polynomialCoeffs.c3 = gaussResult[3];
+   polynomialCoeffs.c0 = m_gaussResult[0];
+   polynomialCoeffs.c1 = m_gaussResult[1];
+   polynomialCoeffs.c2 = m_gaussResult[2];
+   polynomialCoeffs.c3 = m_gaussResult[3];
 }
 
 PolynomialCoeffs PolynomialSubfunctions::fitThirdOrderPolynomial(const TrajectoryPoints& trajectory)
 {
    calculateMmatrix(trajectory);
-   detM = calculateDeterminant(M);
+   m_detM = calculateDeterminant(m_M);
    calculateBvector(trajectory);
 
    for (uint8_t i = 0; i < 4; i++)
    {
       calculateModifiedMMatrix(i);
-      a[i] = calculateDeterminant(M_) / detM;
+      m_a[i] = calculateDeterminant(m_M_) / m_detM;
    }
 
-   polyCoeffs.c0 = a[0];
-   polyCoeffs.c1 = a[1];
-   polyCoeffs.c2 = a[2];
-   polyCoeffs.c3 = a[3];
+   m_polyCoeffs.c0 = m_a[0];
+   m_polyCoeffs.c1 = m_a[1];
+   m_polyCoeffs.c2 = m_a[2];
+   m_polyCoeffs.c3 = m_a[3];
 
-   return polyCoeffs;
+   return m_polyCoeffs;
 }
 
 uint8_t PolynomialSubfunctions::forwardElimination(float (&gaussMatrix)[4][5])
@@ -104,12 +104,12 @@ void PolynomialSubfunctions::backSubstitute(float (&gaussMatrix)[4][5])
 {
    for (int8_t i{3}; i >= 0; i--)
    {
-      gaussResult[i] = gaussMatrix[i][4U];
+      m_gaussResult[i] = gaussMatrix[i][4U];
       for (uint8_t j{i + 1U}; j < 4U; j++)
       {
-         gaussResult[i] -= gaussMatrix[i][j] * gaussResult[j];
+         m_gaussResult[i] -= gaussMatrix[i][j] * m_gaussResult[j];
       }
-      gaussResult[i] = gaussResult[i] / gaussMatrix[i][i];
+      m_gaussResult[i] = m_gaussResult[i] / gaussMatrix[i][i];
    }
 }
 
@@ -123,7 +123,7 @@ void PolynomialSubfunctions::calculateBvector(const TrajectoryPoints& trajectory
       {
          sum = sum + pow(trajectory[j].x, i) * trajectory[j].y;
       }
-      b[i] = sum;
+      m_b[i] = sum;
    }
 }
 
@@ -137,13 +137,13 @@ void PolynomialSubfunctions::calculateMmatrix(const TrajectoryPoints& trajectory
       {
          sum = sum + pow(trajectory[j].x, i);
       }
-      v[i] = sum;
+      m_v[i] = sum;
    }
    for (uint8_t i = 0; i < 4; i++)
    {
       for (uint8_t j = 0; j < 4; j++)
       {
-         M[i][j] = v[i + j];
+         m_M[i][j] = m_v[i + j];
       }
    }
 }
@@ -214,11 +214,11 @@ void PolynomialSubfunctions::calculateModifiedMMatrix(uint8_t k)
       {
          if (j == k)
          {
-            M_[i][j] = b[i];
+            m_M_[i][j] = m_b[i];
          }
          else
          {
-            M_[i][j] = M[i][j];
+            m_M_[i][j] = m_M[i][j];
          }
       }
    }

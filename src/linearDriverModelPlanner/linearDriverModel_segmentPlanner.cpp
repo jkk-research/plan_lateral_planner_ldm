@@ -28,56 +28,56 @@ void SegmentPlanner::buildThreeSegmentPolynomial(
          {
             if (j == 0 && (i % 2 == 0))
             {
-               gaussMatrix[i][j] = 1.0f;
+               m_gaussMatrix[i][j] = 1.0f;
             }
             else if (j == 0 && (i % 2 == 1))
             {
-               gaussMatrix[i][j] = 0.0f;
+               m_gaussMatrix[i][j] = 0.0f;
             }
             if (i == 0U && (0U < j && j < 4U))
             {
-               gaussMatrix[i][j] = 
+               m_gaussMatrix[i][j] = 
                   pow(nodePoints.nodePointsCoordinates[k].x, (float)j);
             }
             else if (i == 0U && j == 4U)
             {
-               gaussMatrix[i][j] = nodePoints.nodePointsCoordinates[k].y;
+               m_gaussMatrix[i][j] = nodePoints.nodePointsCoordinates[k].y;
             }
             else if (i == 1U && (0U < j && j < 4U))
             {
-               gaussMatrix[i][j] = j * pow(
+               m_gaussMatrix[i][j] = j * pow(
                   nodePoints.nodePointsCoordinates[k].x,
                   (float)(j - 1));
             }
             else if (i == 1U && j == 4U)
             {
-               gaussMatrix[i][j] =
+               m_gaussMatrix[i][j] =
                   tan(nodePoints.nodePointsTheta[k]);
             }
             else if (i == 2U && (0U < j && j < 4U))
             {
-               gaussMatrix[i][j] = pow(
+               m_gaussMatrix[i][j] = pow(
                   nodePoints.nodePointsCoordinates[k + 1].x, (float)j);
             }
             else if (i == 2U && j == 4U)
             {
-               gaussMatrix[i][j] = nodePoints.nodePointsCoordinates[k + 1].y;
+               m_gaussMatrix[i][j] = nodePoints.nodePointsCoordinates[k + 1].y;
             }
             else if (i == 3U && (0U < j && j < 4U))
             {
-               gaussMatrix[i][j] = j
+               m_gaussMatrix[i][j] = j
                                    * pow(
                                         nodePoints.nodePointsCoordinates[k + 1].x,
                                         (float)(j - 1));
             }
             else if (i == 3U && j == 4U)
             {
-               gaussMatrix[i][j] =
+               m_gaussMatrix[i][j] =
                   tan(nodePoints.nodePointsTheta[k + 1]);
             }
          }
       }
-      polynomialSubfunctions.gaussElimination(gaussMatrix, polynomialCoeffsThreeSegments.segmentCoeffs[k]);
+      m_polynomialSubfunctions.gaussElimination(m_gaussMatrix, polynomialCoeffsThreeSegments.segmentCoeffs[k]);
 
       segmentParams.initPose[k].x    = nodePoints.nodePointsCoordinates[k].x;
       segmentParams.initPose[k].y    = nodePoints.nodePointsCoordinates[k].y;

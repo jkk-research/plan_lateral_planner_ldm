@@ -21,16 +21,16 @@ class DriverModel
 {
 public:
    // arguments
-   float    U[7]{0.0f};
-   float    x[3]{0.0f};
-   float    nominal[12]{0.0f};
-   uint16_t indices[4]{0U};
+   float    m_U[7]{0.0f};
+   float    m_x[3]{0.0f};
+   float    m_nominal[12]{0.0f};
+   uint16_t m_indices[4]{0U};
    
-   float    XNominal[3]{0.0f};
-   float    YNominal[3]{0.0f};
-   float    thetaNominal[3]{0.0f};
-   float    kappaNominal[3]{0.0f};
-   PolynomialCoeffs validCoefficients{};
+   float    m_XNominal[3]{0.0f};
+   float    m_YNominal[3]{0.0f};
+   float    m_thetaNominal[3]{0.0f};
+   float    m_kappaNominal[3]{0.0f};
+   PolynomialCoeffs m_validCoefficients{};
 
    void driverModelPlannerLite(
       const ScenarioPolynomials&,

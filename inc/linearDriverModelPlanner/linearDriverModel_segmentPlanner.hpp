@@ -29,9 +29,9 @@ public:
       
 private:
    // helper class
-   PolynomialSubfunctions polynomialSubfunctions{};
+   PolynomialSubfunctions m_polynomialSubfunctions{};
    // helper variable
-   float gaussMatrix[4][5]{{0.0f}};
+   float m_gaussMatrix[4][5]{{0.0f}};
 };
 
 #endif  // LINEARDRIVERMODEL_SEGMENTPLANNER_HPP_INCLUDED

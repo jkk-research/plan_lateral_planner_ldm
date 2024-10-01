@@ -28,13 +28,13 @@ public:
    void replanCalc(const LDMParamIn&);
 
    // arguments
-   float   egoPoseDatasX[4]{0.0f};
-   float   egoPoseDatasY[4]{0.0f};
-   float   egoPoseDatasTheta[4]{0.0f};
-   bool    initialized{false};
-   bool    validity{false};
-   bool    replan{false};
-   uint8_t replanCount{0U};
+   float   m_egoPoseDatasX[4]{0.0f};
+   float   m_egoPoseDatasY[4]{0.0f};
+   float   m_egoPoseDatasTheta[4]{0.0f};
+   bool    m_initialized{false};
+   bool    m_validity{false};
+   bool    m_replan{false};
+   uint8_t m_replanCount{0U};
 };
 
 #endif  // LINEARDRIVERMODEL_CONTROLLOGIC_HPP_INCLUDED

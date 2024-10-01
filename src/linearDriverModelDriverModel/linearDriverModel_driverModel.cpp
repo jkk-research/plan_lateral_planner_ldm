@@ -22,11 +22,11 @@ void DriverModel::driverModelPlannerLite(
    // producing nominal values
    for (uint8_t i{0U}; i < 3; i++)
    {
-      XNominal[i] = parameters.P_nodePointDistances[i];
-      YNominal[i] = corridorPolynomials.coeffs[i].c0 + corridorPolynomials.coeffs[i].c1 * parameters.P_nodePointDistances[i]
+      m_XNominal[i] = parameters.P_nodePointDistances[i];
+      m_YNominal[i] = corridorPolynomials.coeffs[i].c0 + corridorPolynomials.coeffs[i].c1 * parameters.P_nodePointDistances[i]
                   + corridorPolynomials.coeffs[i].c2 * pow(parameters.P_nodePointDistances[i], 2.0f)
                   + corridorPolynomials.coeffs[i].c3 * pow(parameters.P_nodePointDistances[i], 3.0f);
-      thetaNominal[i] = atan(
+      m_thetaNominal[i] = atan(
                            corridorPolynomials.coeffs[i].c1 + 2 * corridorPolynomials.coeffs[i].c2 * parameters.P_nodePointDistances[i]
                            + 3 * corridorPolynomials.coeffs[i].c3 * pow(parameters.P_nodePointDistances[i], 2.0f));
    }
@@ -37,33 +37,33 @@ void DriverModel::driverModelPlannerLite(
    // intializing with further most segment due to extrapolation
    if (trajectoryCoeffsThreeSegments.sectionBorderEnd[2] < 0.0f)
    {
-      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[2];
+      m_validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[2];
    }
    else
    {
-      validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[0];
+      m_validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[0];
       for (uint8_t i{0U}; i < 3; i++)
       {
          if (
             trajectoryCoeffsThreeSegments.sectionBorderStart[i] <= 0.0f
             && trajectoryCoeffsThreeSegments.sectionBorderEnd[i] > 0.0f)
          {
-            validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[i];
+            m_validCoefficients = trajectoryCoeffsThreeSegments.segmentCoeffs[i];
             break;
          }
       }
    }
 
    nodePoints.nodePointsCoordinates[0U].x = 0.0f;
-   nodePoints.nodePointsCoordinates[0U].y = validCoefficients.c0;
-   nodePoints.nodePointsTheta[0U] = atan(validCoefficients.c1);
+   nodePoints.nodePointsCoordinates[0U].y = m_validCoefficients.c0;
+   nodePoints.nodePointsTheta[0U] = atan(m_validCoefficients.c1);
    for (uint8_t i{0U}; i < 3; i++)
    {
       nodePoints.nodePointsCoordinates[i + 1U].x =
-         XNominal[i] - sin(thetaNominal[i]) * x[i];
+         m_XNominal[i] - sin(m_thetaNominal[i]) * m_x[i];
       nodePoints.nodePointsCoordinates[i + 1U].y =
-         YNominal[i] + cos(thetaNominal[i]) * x[i];
-      nodePoints.nodePointsTheta[i + 1U] = thetaNominal[i];
+         m_YNominal[i] + cos(m_thetaNominal[i]) * m_x[i];
+      nodePoints.nodePointsTheta[i + 1U] = m_thetaNominal[i];
    }
 }
 
@@ -73,15 +73,15 @@ void DriverModel::offsetCalcExtendedLDM(const LDMParamIn& parameters, const std:
    {
       if (i < 3U)
       {
-         U[i] = std::max(kappaNominal[i], 0.0f);
+         m_U[i] = std::max(kappaNominal[i], 0.0f);
       }
       else if (i < 6U)
       {
-         U[i] = std::min(kappaNominal[i - 3], 0.0f);
+         m_U[i] = std::min(kappaNominal[i - 3], 0.0f);
       }
       else
       {
-         U[i] = 1.0f;
+         m_U[i] = 1.0f;
       }
    }
 
@@ -89,30 +89,30 @@ void DriverModel::offsetCalcExtendedLDM(const LDMParamIn& parameters, const std:
 
    for (uint8_t i{0U}; i <= 6U; i++)
    {
-      U[i] = U[i] / U_lim[i];
+      m_U[i] = m_U[i] / U_lim[i];
    }
 
-   memset(x, 0.0f, sizeof(x));
+   memset(m_x, 0.0f, sizeof(m_x));
 
    for (uint8_t i{0U}; i <= 20U; i++)
    {
       if (i <= 6U)
       {
-         x[0U] += U[i] * parameters.P[i];
+         m_x[0U] += m_U[i] * parameters.P[i];
       }
       else if (i <= 13U)
       {
-         x[1] += U[i - 7] * parameters.P[i];
+         m_x[1] += m_U[i - 7] * parameters.P[i];
       }
       else
       {
-         x[2] += U[i - 14] * parameters.P[i];
+         m_x[2] += m_U[i - 14] * parameters.P[i];
       }
    }
 
    // limiting offset value: x
    for (uint8_t i{0U}; i < 3U; i++)
    {
-      x[i] = std::min(std::max(-1.25f, x[i]), 1.25f);
+      m_x[i] = std::min(std::max(-1.25f, m_x[i]), 1.25f);
    }
 }
