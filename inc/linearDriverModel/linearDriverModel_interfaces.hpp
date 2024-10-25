@@ -74,7 +74,7 @@ struct LDMParamIn
 {
    // float lookAheadDistance{250.0f};
    int   replanCycle{25U};
-   float P[21]{0.0f};
+   double P[21]{0.0f};
    float P_nodePointDistances[3]{6.0f, 24.0f, 80.0f};
 };
 
